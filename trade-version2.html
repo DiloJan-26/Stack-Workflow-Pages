@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Platform — Deep Dive Flow</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080812;
+  --surface: #0f0f1e;
+  --card: #141428;
+  --card2: #1a1a35;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --muted2: #94a3b8;
+
+  /* Layer colors */
+  --col-config:     #f97316;
+  --col-controller: #a855f7;
+  --col-service:    #10b981;
+  --col-repo:       #f59e0b;
+  --col-model:      #3b82f6;
+  --col-domain:     #06b6d4;
+  --col-dto:        #ec4899;
+  --col-external:   #8b5cf6;
+  --col-db:         #ef4444;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* grid bg */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ─── HEADER ─────────────────────────────── */
+header {
+  text-align:center;
+  padding: 52px 24px 36px;
+  position:relative;
+  z-index:1;
+}
+.header-pill {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background: rgba(168,85,247,0.12);
+  border: 1px solid rgba(168,85,247,0.3);
+  color:#c084fc;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  padding:6px 16px;
+  border-radius:20px;
+  margin-bottom:20px;
+}
+header h1 {
+  font-family:'Syne', sans-serif;
+  font-size: clamp(1.8rem,4.5vw,3rem);
+  font-weight:800;
+  background: linear-gradient(135deg,#f97316,#a855f7,#3b82f6,#10b981);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  line-height:1.15;
+  margin-bottom:12px;
+}
+header p {
+  color:var(--muted2);
+  font-size:15px;
+  font-weight:500;
+  max-width:520px;
+  margin:0 auto;
+}
+
+/* ─── LAYER LEGEND ───────────────────────── */
+.legend-bar {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  padding:0 24px 32px;
+  position:relative;
+  z-index:1;
+}
+.legend-chip {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:6px 12px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted2);
+  letter-spacing:0.3px;
+}
+.legend-dot { width:10px;height:10px;border-radius:3px;flex-shrink:0; }
+
+/* ─── TAB NAV ────────────────────────────── */
+.tab-nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  justify-content:center;
+  padding:0 24px 28px;
+  position:relative;
+  z-index:1;
+}
+.tab-btn {
+  padding:9px 18px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--muted2);
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.2s ease;
+  letter-spacing:0.2px;
+}
+.tab-btn:hover { color:white; border-color:var(--border2); }
+.tab-btn.active { color:white; }
+.tab-btn[data-tab="arch"].active     { background:rgba(168,85,247,0.2);  border-color:#a855f7; }
+.tab-btn[data-tab="jwt"].active      { background:rgba(249,115,22,0.2);  border-color:#f97316; }
+.tab-btn[data-tab="orders"].active   { background:rgba(16,185,129,0.2);  border-color:#10b981; }
+.tab-btn[data-tab="wallet"].active   { background:rgba(245,158,11,0.2);  border-color:#f59e0b; }
+.tab-btn[data-tab="security"].active { background:rgba(239,68,68,0.2);   border-color:#ef4444; }
+.tab-btn[data-tab="auth2fa"].active  { background:rgba(6,182,212,0.2);   border-color:#06b6d4; }
+.tab-btn[data-tab="payment"].active  { background:rgba(236,72,153,0.2);  border-color:#ec4899; }
+
+/* ─── MAIN ───────────────────────────────── */
+.main {
+  max-width:1140px;
+  margin:0 auto;
+  padding:0 20px 80px;
+  position:relative;
+  z-index:1;
+}
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; animation:fadeUp 0.35s ease; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ─── SECTION TITLE ──────────────────────── */
+.section-title {
+  font-family:'Syne',sans-serif;
+  font-size:20px;
+  font-weight:800;
+  margin-bottom:24px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:white;
+}
+.section-sub {
+  font-size:13px;
+  color:var(--muted2);
+  font-weight:500;
+  margin-top:-18px;
+  margin-bottom:24px;
+}
+
+/* ─── ARCHITECTURE GRID ──────────────────── */
+.arch-grid {
+  display:grid;
+  grid-template-columns:1fr;
+  gap:2px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  overflow:hidden;
+  margin-bottom:28px;
+}
+
+.arch-layer {
+  display:grid;
+  grid-template-columns: 110px 1fr;
+  min-height:100px;
+  border-bottom:1px solid var(--border);
+  transition:background 0.2s;
+}
+.arch-layer:last-child { border-bottom:none; }
+.arch-layer:hover { background:rgba(255,255,255,0.02); }
+
+.layer-meta {
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  padding:16px 10px;
+  border-right:1px solid var(--border);
+  gap:6px;
+}
+.layer-emoji { font-size:22px; }
+.layer-name {
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  text-align:center;
+}
+.layer-dir {
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  color:var(--muted);
+  text-align:center;
+}
+
+.layer-files {
+  padding:14px 18px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  align-items:center;
+}
+
+/* file chip */
+.chip {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 11px;
+  border-radius:6px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:600;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+}
+.chip:hover { transform:translateY(-2px); filter:brightness(1.15); }
+
+.chip-config     { background:rgba(249,115,22,0.1);  color:#fb923c; border-color:rgba(249,115,22,0.25); }
+.chip-controller { background:rgba(168,85,247,0.1);  color:#c084fc; border-color:rgba(168,85,247,0.25); }
+.chip-service    { background:rgba(16,185,129,0.1);  color:#34d399; border-color:rgba(16,185,129,0.25); }
+.chip-repo       { background:rgba(245,158,11,0.1);  color:#fcd34d; border-color:rgba(245,158,11,0.25); }
+.chip-model      { background:rgba(59,130,246,0.1);  color:#93c5fd; border-color:rgba(59,130,246,0.25); }
+.chip-domain     { background:rgba(6,182,212,0.1);   color:#67e8f9; border-color:rgba(6,182,212,0.25); }
+.chip-dto        { background:rgba(236,72,153,0.1);  color:#f9a8d4; border-color:rgba(236,72,153,0.25); }
+.chip-external   { background:rgba(139,92,246,0.1);  color:#c4b5fd; border-color:rgba(139,92,246,0.25); }
+
+/* ─── FLOW DIAGRAM ───────────────────────── */
+.flow-wrap {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:28px 24px;
+  margin-bottom:24px;
+  overflow:hidden;
+  position:relative;
+}
+.flow-wrap::before {
+  content:'';
+  position:absolute;
+  top:-80px;right:-80px;
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(168,85,247,0.05) 0%,transparent 60%);
+  pointer-events:none;
+}
+
+.flow-title {
+  font-family:'Syne',sans-serif;
+  font-size:15px;
+  font-weight:800;
+  margin-bottom:20px;
+  color:white;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* vertical chain */
+.vchain { display:flex; flex-direction:column; align-items:flex-start; gap:0; max-width:800px; }
+
+.vnode {
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+  width:100%;
+  position:relative;
+}
+
+.vnode-line-wrap {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:40px;
+  flex-shrink:0;
+}
+.vnode-circle {
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  flex-shrink:0;
+  border:2px solid transparent;
+}
+.vnode-connector {
+  width:2px;
+  flex:1;
+  min-height:24px;
+  background:linear-gradient(to bottom,rgba(255,255,255,0.12),rgba(255,255,255,0.03));
+  margin:2px 0;
+}
+.vnode-connector-label {
+  font-size:9px;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:1px;
+  text-transform:uppercase;
+  writing-mode:vertical-rl;
+  padding:4px 0;
+  display:none;
+}
+
+.vnode-body {
+  flex:1;
+  padding:12px 16px;
+  border-radius:12px;
+  border:1px solid transparent;
+  margin-bottom:8px;
+}
+.vnode-top {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:5px;
+  flex-wrap:wrap;
+}
+.vnode-label {
+  font-weight:700;
+  font-size:13px;
+  color:white;
+}
+.vnode-files {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.vnode-desc {
+  font-size:12px;
+  color:var(--muted2);
+  margin-top:4px;
+  line-height:1.6;
+  font-weight:500;
+}
+
+/* node themes */
+.n-config     .vnode-circle { background:rgba(249,115,22,0.15);  border-color:rgba(249,115,22,0.4);  }
+.n-config     .vnode-body   { background:rgba(249,115,22,0.06);  border-color:rgba(249,115,22,0.15); }
+.n-controller .vnode-circle { background:rgba(168,85,247,0.15);  border-color:rgba(168,85,247,0.4);  }
+.n-controller .vnode-body   { background:rgba(168,85,247,0.06);  border-color:rgba(168,85,247,0.15); }
+.n-service    .vnode-circle { background:rgba(16,185,129,0.15);  border-color:rgba(16,185,129,0.4);  }
+.n-service    .vnode-body   { background:rgba(16,185,129,0.06);  border-color:rgba(16,185,129,0.15); }
+.n-repo       .vnode-circle { background:rgba(245,158,11,0.15);  border-color:rgba(245,158,11,0.4);  }
+.n-repo       .vnode-body   { background:rgba(245,158,11,0.06);  border-color:rgba(245,158,11,0.15); }
+.n-model      .vnode-circle { background:rgba(59,130,246,0.15);  border-color:rgba(59,130,246,0.4);  }
+.n-model      .vnode-body   { background:rgba(59,130,246,0.06);  border-color:rgba(59,130,246,0.15); }
+.n-dto        .vnode-circle { background:rgba(236,72,153,0.15);  border-color:rgba(236,72,153,0.4);  }
+.n-dto        .vnode-body   { background:rgba(236,72,153,0.06);  border-color:rgba(236,72,153,0.15); }
+.n-external   .vnode-circle { background:rgba(139,92,246,0.15);  border-color:rgba(139,92,246,0.4);  }
+.n-external   .vnode-body   { background:rgba(139,92,246,0.06);  border-color:rgba(139,92,246,0.15); }
+.n-client     .vnode-circle { background:rgba(6,182,212,0.15);   border-color:rgba(6,182,212,0.4);   }
+.n-client     .vnode-body   { background:rgba(6,182,212,0.06);   border-color:rgba(6,182,212,0.15);  }
+.n-db         .vnode-circle { background:rgba(239,68,68,0.15);   border-color:rgba(239,68,68,0.4);   }
+.n-db         .vnode-body   { background:rgba(239,68,68,0.06);   border-color:rgba(239,68,68,0.15);  }
+.n-success    .vnode-circle { background:rgba(16,185,129,0.15);  border-color:rgba(16,185,129,0.4);  }
+.n-success    .vnode-body   { background:rgba(16,185,129,0.06);  border-color:rgba(16,185,129,0.15); }
+
+/* ─── MULTI COL FLOWS ────────────────────── */
+.flow-cols {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:20px;
+  margin-bottom:24px;
+}
+
+/* ─── INFO CARDS ─────────────────────────── */
+.info-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:14px;
+  margin-top:8px;
+}
+.info-card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:18px;
+}
+.info-card h4 {
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.5px;
+  margin-bottom:10px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.info-card p, .info-card li {
+  font-size:12px;
+  color:var(--muted2);
+  line-height:1.7;
+  font-weight:500;
+}
+.info-card ul { padding-left:14px; }
+code {
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  background:rgba(255,255,255,0.07);
+  padding:1px 5px;
+  border-radius:4px;
+  color:#e2e8f0;
+}
+
+/* ─── BRANCH NODE (split) ────────────────── */
+.branch-wrap {
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  padding-left:52px;
+  margin-bottom:8px;
+}
+.branch-card {
+  flex:1;
+  min-width:180px;
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid transparent;
+  font-size:12px;
+}
+.branch-card strong { display:block; font-size:12px; color:white; margin-bottom:3px; }
+.branch-card span   { font-size:11px; color:var(--muted2); }
+.branch-success { background:rgba(16,185,129,0.07); border-color:rgba(16,185,129,0.2); }
+.branch-fail    { background:rgba(239,68,68,0.07);   border-color:rgba(239,68,68,0.2);  }
+
+/* ─── ATOMIC BOX ─────────────────────────── */
+.atomic-box {
+  background:rgba(245,158,11,0.06);
+  border:1px dashed rgba(245,158,11,0.3);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-left:52px;
+  margin-bottom:8px;
+}
+.atomic-box-title {
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  color:#fcd34d;
+  margin-bottom:8px;
+}
+.atomic-steps { display:flex; flex-wrap:wrap; gap:8px; }
+.atomic-step {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:rgba(245,158,11,0.08);
+  border:1px solid rgba(245,158,11,0.2);
+  border-radius:8px;
+  padding:6px 12px;
+  font-size:11px;
+  color:#fcd34d;
+  font-weight:600;
+}
+
+/* ─── RESPONSIVE ─────────────────────────── */
+@media(max-width:640px) {
+  .arch-layer { grid-template-columns:80px 1fr; }
+  .layer-meta { padding:12px 6px; }
+  .flow-cols  { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-pill">🔬 Deep Dive Visualizer</div>
+  <h1>Crypto Platform<br>Every File. Every Flow.</h1>
+  <p>All controllers, services, repositories, models & domain enums — mapped to real workflows</p>
+</header>
+
+<!-- LEGEND -->
+<div class="legend-bar">
+  <div class="legend-chip"><div class="legend-dot" style="background:#f97316"></div>config/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#a855f7"></div>controller/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#10b981"></div>service/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#f59e0b"></div>repository/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#3b82f6"></div>model/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#06b6d4"></div>domain/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#ec4899"></div>request/response/</div>
+  <div class="legend-chip"><div class="legend-dot" style="background:#8b5cf6"></div>External API</div>
+</div>
+
+<!-- TABS -->
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="arch">📦 Full Architecture</button>
+  <button class="tab-btn" data-tab="jwt">🔑 JWT & Security</button>
+  <button class="tab-btn" data-tab="orders">📈 Orders & Portfolio</button>
+  <button class="tab-btn" data-tab="wallet">💰 Wallet & Tx</button>
+  <button class="tab-btn" data-tab="security">🛡️ Roles & Access</button>
+  <button class="tab-btn" data-tab="auth2fa">🔐 2FA & Verification</button>
+  <button class="tab-btn" data-tab="payment">💳 Payment Flow</button>
+</nav>
+
+<main class="main">
+
+<!-- ═══════════════ ARCHITECTURE ═══════════════ -->
+<div class="tab-panel active" id="arch">
+  <div class="section-title">📦 Full Package Architecture — Every File</div>
+  <p class="section-sub">Every folder and class in the project, organized by layer. Hover any file chip to see its role.</p>
+
+  <div class="arch-grid">
+
+    <!-- BOOT -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #ef4444;">
+        <div class="layer-emoji">🚀</div>
+        <div class="layer-name" style="color:#ef4444;">Boot</div>
+        <div class="layer-dir">root</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-config" title="Entry point. @SpringBootApplication triggers full scan">ServercompApplication</span>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #f97316;">
+        <div class="layer-emoji">⚙️</div>
+        <div class="layer-name" style="color:#f97316;">Config</div>
+        <div class="layer-dir">config/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-config">AppConfig</span>
+        <span class="chip chip-config">JwtConstant</span>
+        <span class="chip chip-config">JwtProvider</span>
+        <span class="chip chip-config">JwtTokenValidator</span>
+      </div>
+    </div>
+
+    <!-- CONTROLLER -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #a855f7;">
+        <div class="layer-emoji">🎮</div>
+        <div class="layer-name" style="color:#a855f7;">Controller</div>
+        <div class="layer-dir">controller/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-controller">AuthController</span>
+        <span class="chip chip-controller">UserController</span>
+        <span class="chip chip-controller">WalletController</span>
+        <span class="chip chip-controller">TransactionController</span>
+        <span class="chip chip-controller">OrderController</span>
+        <span class="chip chip-controller">AssetController</span>
+        <span class="chip chip-controller">WithdrawalController</span>
+        <span class="chip chip-controller">WatchListController</span>
+        <span class="chip chip-controller">CoinController</span>
+        <span class="chip chip-controller">PaymentController</span>
+        <span class="chip chip-controller">PaymentDetailsController</span>
+        <span class="chip chip-controller">HomeController</span>
+      </div>
+    </div>
+
+    <!-- SERVICE -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #10b981;">
+        <div class="layer-emoji">⚙️</div>
+        <div class="layer-name" style="color:#10b981;">Service</div>
+        <div class="layer-dir">service/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-service">UserServiceImpl</span>
+        <span class="chip chip-service">WalletServiceImpl</span>
+        <span class="chip chip-service">TransactionServiceImpl</span>
+        <span class="chip chip-service">OrderServiceImpl</span>
+        <span class="chip chip-service">AssetServiceImpl</span>
+        <span class="chip chip-service">WithdrawalServiceImpl</span>
+        <span class="chip chip-service">WatchlistServiceImpl</span>
+        <span class="chip chip-service">CoinServiceImpl</span>
+        <span class="chip chip-service">PaymentServiceImpl</span>
+        <span class="chip chip-service">PaymentDetailsServiceImpl</span>
+        <span class="chip chip-service">ForgotPasswordServiceImpl</span>
+        <span class="chip chip-service">VerificationCodeServiceImpl</span>
+        <span class="chip chip-service">TwoFactorOTPServiceImpl</span>
+        <span class="chip chip-service">EmailService</span>
+        <span class="chip chip-service">CustomUserDetailsService</span>
+      </div>
+    </div>
+
+    <!-- REPOSITORY -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #f59e0b;">
+        <div class="layer-emoji">📦</div>
+        <div class="layer-name" style="color:#f59e0b;">Repository</div>
+        <div class="layer-dir">repository/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-repo">UserRepository</span>
+        <span class="chip chip-repo">WalletRepository</span>
+        <span class="chip chip-repo">WalletTransactionRepository</span>
+        <span class="chip chip-repo">AssetRepository</span>
+        <span class="chip chip-repo">OrderRepository</span>
+        <span class="chip chip-repo">OrderItemRepository</span>
+        <span class="chip chip-repo">WithdrawalRepository</span>
+        <span class="chip chip-repo">WatchlistRepository</span>
+        <span class="chip chip-repo">CoinRepository</span>
+        <span class="chip chip-repo">PaymentOrderRepository</span>
+        <span class="chip chip-repo">PaymentDetailsRepository</span>
+        <span class="chip chip-repo">VerificationCodeRepository</span>
+        <span class="chip chip-repo">TwoFactorOTPRepository</span>
+        <span class="chip chip-repo">ForgotPasswordRepository</span>
+      </div>
+    </div>
+
+    <!-- MODEL -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #3b82f6;">
+        <div class="layer-emoji">🧩</div>
+        <div class="layer-name" style="color:#3b82f6;">Model</div>
+        <div class="layer-dir">model/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-model">User</span>
+        <span class="chip chip-model">Wallet</span>
+        <span class="chip chip-model">WalletTransaction</span>
+        <span class="chip chip-model">Asset</span>
+        <span class="chip chip-model">Order</span>
+        <span class="chip chip-model">OrderItem</span>
+        <span class="chip chip-model">Withdrawal</span>
+        <span class="chip chip-model">Watchlist</span>
+        <span class="chip chip-model">Coin</span>
+        <span class="chip chip-model">PaymentOrder</span>
+        <span class="chip chip-model">PaymentDetails</span>
+        <span class="chip chip-model">VerificationCode</span>
+        <span class="chip chip-model">TwoFactorAuth</span>
+        <span class="chip chip-model">TwoFactorOTP</span>
+        <span class="chip chip-model">ForgotPasswordToken</span>
+      </div>
+    </div>
+
+    <!-- DOMAIN -->
+    <div class="arch-layer">
+      <div class="layer-meta" style="border-left:3px solid #06b6d4;">
+        <div class="layer-emoji">🔤</div>
+        <div class="layer-name" style="color:#06b6d4;">Domain</div>
+        <div class="layer-dir">domain/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-domain">USER_ROLE</span>
+        <span class="chip chip-domain">OrderStatus</span>
+        <span class="chip chip-domain">OrderType</span>
+        <span class="chip chip-domain">PaymentMethod</span>
+        <span class="chip chip-domain">PaymentOrderStatus</span>
+        <span class="chip chip-domain">VerificationType</span>
+        <span class="chip chip-domain">WalletTransactionType</span>
+        <span class="chip chip-domain">WithdrawalStatus</span>
+      </div>
+    </div>
+
+    <!-- REQUEST/RESPONSE -->
+    <div class="arch-layer" style="border-bottom:none;">
+      <div class="layer-meta" style="border-left:3px solid #ec4899;">
+        <div class="layer-emoji">📬</div>
+        <div class="layer-name" style="color:#ec4899;">DTOs</div>
+        <div class="layer-dir">request/ response/</div>
+      </div>
+      <div class="layer-files">
+        <span class="chip chip-dto">CreateOrderRequest</span>
+        <span class="chip chip-dto">ForgotPasswordTokenRequest</span>
+        <span class="chip chip-dto">ResetPasswordRequest</span>
+        <span class="chip chip-dto">ApiResponse</span>
+        <span class="chip chip-dto">AuthResponse</span>
+        <span class="chip chip-dto">PaymentResponse</span>
+      </div>
+    </div>
+
+  </div><!-- /arch-grid -->
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#a855f7">🎮 Controller = Front Desk</h4>
+      <p>12 controllers = 12 feature areas. Each receives HTTP requests, reads the input DTO, and immediately delegates to the matching Service. Zero business logic here.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#10b981">⚙️ Service = The Brain</h4>
+      <p>15 services. Every rule, validation, calculation, external API call, and multi-step operation lives here. Uses <code>@Transactional</code> for atomic writes.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#f59e0b">📦 Repository = DB Clerk</h4>
+      <p>14 repositories. Spring Data JPA generates all SQL automatically from method names like <code>findByUserId()</code> or <code>findByEmail()</code>.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#06b6d4">🔤 Domain Enums = Vocabulary</h4>
+      <p>8 enums keep the system consistent. Instead of storing raw strings like "pending", you store <code>WithdrawalStatus.PENDING</code> — type-safe and refactor-proof.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ JWT & SECURITY ═══════════════ -->
+<div class="tab-panel" id="jwt">
+  <div class="section-title">🔑 JWT Security — Login → Token → Protected Access</div>
+  <p class="section-sub">Every request flows through the JWT filter before reaching any controller.</p>
+
+  <div class="flow-cols">
+
+    <div class="flow-wrap">
+      <div class="flow-title">📝 Login / Register → JWT issued</div>
+      <div class="vchain">
+
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">🌐</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">Client</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-dto" style="font-size:9px;">POST /auth/login or /auth/register</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="vnode n-controller">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">🎮</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">AuthController</span></div>
+            <div class="vnode-desc">Receives request, validates input, calls UserService</div>
+          </div>
+        </div>
+
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">⚙️</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">UserServiceImpl + CustomUserDetailsService</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">UserServiceImpl</span>
+              <span class="chip chip-service" style="font-size:9px;">CustomUserDetailsService</span>
+            </div>
+            <div class="vnode-desc">Loads user from DB, BCrypt verifies password via Spring Security</div>
+          </div>
+        </div>
+
+        <div class="vnode n-repo">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">📦</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">UserRepository → User (MySQL)</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-repo" style="font-size:9px;">UserRepository</span>
+              <span class="chip chip-model" style="font-size:9px;">User</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="vnode n-config">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">🔏</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">JwtProvider signs the token</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-config" style="font-size:9px;">JwtProvider</span>
+              <span class="chip chip-config" style="font-size:9px;">JwtConstant</span>
+            </div>
+            <div class="vnode-desc">Creates signed JWT with userId, role, expiry embedded in payload</div>
+          </div>
+        </div>
+
+        <div class="vnode n-dto">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">📤</div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">AuthResponse → Client</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-dto" style="font-size:9px;">AuthResponse</span>
+            </div>
+            <div class="vnode-desc">JWT token returned. Client stores it and sends it with every future request.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <div class="flow-title">🛡️ Every Protected Request — Token Validation</div>
+      <div class="vchain">
+
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">🌐</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">Client sends any request</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-dto" style="font-size:9px;">Authorization: Bearer &lt;JWT&gt;</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="vnode n-config">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">🔍</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">JwtTokenValidator intercepts first</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-config" style="font-size:9px;">JwtTokenValidator</span>
+            </div>
+            <div class="vnode-desc">This filter runs before EVERY request. Reads the Authorization header.</div>
+          </div>
+        </div>
+
+        <div class="vnode n-config">
+          <div class="vnode-line-wrap">
+            <div class="vnode-circle">✅</div>
+            <div class="vnode-connector"></div>
+          </div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">JwtProvider validates token</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-config" style="font-size:9px;">JwtProvider</span>
+              <span class="chip chip-config" style="font-size:9px;">JwtConstant</span>
+            </div>
+            <div class="vnode-desc">Checks signature, expiry, extracts userId & role from payload</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="branch-wrap">
+        <div class="branch-card branch-success">
+          <strong>✅ Valid Token</strong>
+          <span>User identity set in SecurityContext → request passes to the correct Controller</span>
+        </div>
+        <div class="branch-card branch-fail">
+          <strong>❌ Invalid / Expired</strong>
+          <span>401 Unauthorized returned immediately. No controller code runs.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#f97316">🔐 JwtConstant</h4>
+      <p>Holds the <strong>secret key</strong> and token expiry constants. Never hardcoded in logic files — kept here so it's easy to rotate keys from one place.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#f97316">🏭 JwtProvider</h4>
+      <p>Does two things: <strong>creates</strong> tokens after login (signs with secret), and <strong>parses</strong> tokens from incoming requests to extract userId and role.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#f97316">🚨 JwtTokenValidator</h4>
+      <p>A Spring <code>OncePerRequestFilter</code>. Runs for every single HTTP request before any controller. If token is bad → stops the request right here.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#10b981">👤 CustomUserDetailsService</h4>
+      <p>Spring Security requires this. It loads a <code>User</code> from <code>UserRepository</code> by email so Spring can verify the password during login.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ORDERS ═══════════════ -->
+<div class="tab-panel" id="orders">
+  <div class="section-title">📈 Orders & Portfolio — Buy · Sell · Assets</div>
+  <p class="section-sub">A single buy/sell order touches 4 different tables atomically. All-or-nothing.</p>
+
+  <div class="flow-wrap">
+    <div class="flow-title">🛒 Buy Order Flow (Example: Buy BTC for $500)</div>
+    <div class="vchain">
+
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">Client</span></div>
+          <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">POST /orders — CreateOrderRequest { coinId:"bitcoin", type:BUY, amount:500 }</span></div>
+        </div>
+      </div>
+
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">OrderController</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-controller" style="font-size:9px;">OrderController</span>
+            <span class="chip chip-dto" style="font-size:9px;">CreateOrderRequest</span>
+          </div>
+          <div class="vnode-desc">Reads request, confirms JWT identity, delegates to OrderService</div>
+        </div>
+      </div>
+
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">OrderServiceImpl — Step 1: Validate OrderType</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">OrderServiceImpl</span>
+            <span class="chip chip-domain" style="font-size:9px;">OrderType.BUY</span>
+            <span class="chip chip-domain" style="font-size:9px;">OrderStatus.PENDING</span>
+          </div>
+          <div class="vnode-desc">Checks if request is BUY or SELL, sets initial order status</div>
+        </div>
+      </div>
+
+      <div class="vnode n-external">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌍</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">CoinServiceImpl → CoinGecko API</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">CoinServiceImpl</span>
+            <span class="chip chip-external" style="font-size:9px;">CoinGecko API</span>
+          </div>
+          <div class="vnode-desc">Fetches LIVE BTC price at this exact moment. Calculates qty = $500 ÷ price</div>
+        </div>
+      </div>
+
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">💳</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">WalletServiceImpl — Check balance</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">WalletServiceImpl</span>
+            <span class="chip chip-model" style="font-size:9px;">Wallet</span>
+          </div>
+          <div class="vnode-desc">User must have ≥ $500 fiat balance. If not → throws exception, nothing written to DB.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Atomic box -->
+    <div class="atomic-box">
+      <div class="atomic-box-title">⚛️ @Transactional — Atomic DB Writes (all succeed or all rollback)</div>
+      <div class="atomic-steps">
+        <div class="atomic-step">1️⃣ Debit $500 from Wallet → <code>WalletRepository</code></div>
+        <div class="atomic-step">2️⃣ Credit BTC qty to Asset → <code>AssetRepository</code></div>
+        <div class="atomic-step">3️⃣ Create Order record → <code>OrderRepository</code></div>
+        <div class="atomic-step">4️⃣ Create OrderItem → <code>OrderItemRepository</code></div>
+        <div class="atomic-step">5️⃣ Log WalletTransaction (DEBIT) → <code>WalletTransactionRepository</code></div>
+      </div>
+    </div>
+
+    <div class="vchain" style="margin-top:8px;">
+      <div class="vnode n-dto">
+        <div class="vnode-line-wrap"><div class="vnode-circle">📤</div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">ApiResponse → Client</span></div>
+          <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">ApiResponse — order confirmed, new balance, BTC qty</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">📊 Portfolio — GET /assets (what user holds)</div>
+    <div class="vchain">
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body"><div class="vnode-top"><span class="vnode-label">GET /assets</span></div></div>
+      </div>
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">AssetController</span></div>
+          <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">AssetController</span></div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">AssetServiceImpl</span></div>
+          <div class="vnode-files"><span class="chip chip-service" style="font-size:9px;">AssetServiceImpl</span></div>
+          <div class="vnode-desc">Fetches all holdings for current user. Can optionally join with CoinGecko for live PnL (profit/loss) calculation.</div>
+        </div>
+      </div>
+      <div class="vnode n-repo">
+        <div class="vnode-line-wrap"><div class="vnode-circle">📦</div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">AssetRepository → Asset table</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-repo" style="font-size:9px;">AssetRepository</span>
+            <span class="chip chip-model" style="font-size:9px;">Asset</span>
+          </div>
+          <div class="vnode-desc">Each Asset row = { userId, coinId, quantity, avgBuyPrice }</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#10b981">📦 Order vs OrderItem</h4>
+      <p><code>Order</code> = the trade event (who, what action, when, total price). <code>OrderItem</code> = the specific coin detail (which coin, quantity, unit price). One Order has one OrderItem.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#06b6d4">📊 Domain Enums Used</h4>
+      <ul>
+        <li><code>OrderType</code> — BUY or SELL</li>
+        <li><code>OrderStatus</code> — PENDING, COMPLETED, CANCELLED</li>
+        <li><code>WalletTransactionType</code> — DEBIT / CREDIT</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#f97316">🔄 SELL is the mirror</h4>
+      <p>Sell flow is identical but reversed: debit Asset (reduce BTC), credit Wallet (add fiat). Same 5 atomic DB writes, same <code>@Transactional</code> protection.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ WALLET ═══════════════ -->
+<div class="tab-panel" id="wallet">
+  <div class="section-title">💰 Wallet, Transfers & Transaction History</div>
+  <p class="section-sub">Every money movement creates an auditable WalletTransaction record.</p>
+
+  <div class="flow-cols">
+
+    <div class="flow-wrap">
+      <div class="flow-title">🔄 Wallet-to-Wallet Transfer</div>
+      <div class="vchain">
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">POST /wallet/transfer</span></div>
+            <div class="vnode-desc">{ receiverId, amount } — user sends money to another user on the platform</div>
+          </div>
+        </div>
+        <div class="vnode n-controller">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">WalletController</span></div>
+            <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">WalletController</span></div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">WalletServiceImpl — Validate</span></div>
+            <div class="vnode-files"><span class="chip chip-service" style="font-size:9px;">WalletServiceImpl</span></div>
+            <div class="vnode-desc">Check: sender balance ≥ amount · receiver exists · transfer limits not exceeded</div>
+          </div>
+        </div>
+      </div>
+      <div class="atomic-box">
+        <div class="atomic-box-title">⚛️ Atomic — 4 writes or 0</div>
+        <div class="atomic-steps">
+          <div class="atomic-step">1️⃣ Debit sender Wallet</div>
+          <div class="atomic-step">2️⃣ Credit receiver Wallet</div>
+          <div class="atomic-step">3️⃣ WalletTransaction (DEBIT) for sender</div>
+          <div class="atomic-step">4️⃣ WalletTransaction (CREDIT) for receiver</div>
+        </div>
+      </div>
+      <div class="vchain" style="margin-top:8px;">
+        <div class="vnode n-dto">
+          <div class="vnode-line-wrap"><div class="vnode-circle">📤</div></div>
+          <div class="vnode-body"><div class="vnode-top"><span class="vnode-label">ApiResponse → success + new balance</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <div class="flow-title">🏦 Withdrawal Request Flow</div>
+      <div class="vchain">
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">POST /withdrawals/request</span></div>
+            <div class="vnode-desc">{ bankAccount, amount } — user wants to cash out to real bank</div>
+          </div>
+        </div>
+        <div class="vnode n-controller">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">WithdrawalController</span></div>
+            <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">WithdrawalController</span></div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">WithdrawalServiceImpl</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">WithdrawalServiceImpl</span>
+              <span class="chip chip-domain" style="font-size:9px;">WithdrawalStatus.PENDING</span>
+            </div>
+            <div class="vnode-desc">Validates balance, creates Withdrawal record as PENDING, reserves funds</div>
+          </div>
+        </div>
+        <div class="vnode n-repo">
+          <div class="vnode-line-wrap"><div class="vnode-circle">📦</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">WithdrawalRepository + WalletTransactionRepository</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-repo" style="font-size:9px;">WithdrawalRepository</span>
+              <span class="chip chip-repo" style="font-size:9px;">WalletTransactionRepository</span>
+            </div>
+          </div>
+        </div>
+        <div class="vnode n-service" style="margin-top:8px;">
+          <div class="vnode-line-wrap"><div class="vnode-circle">👤</div></div>
+          <div class="vnode-body" style="background:rgba(168,85,247,0.06); border-color:rgba(168,85,247,0.2);">
+            <div class="vnode-top"><span class="vnode-label">Admin reviews → APPROVED / REJECTED</span></div>
+            <div class="vnode-files"><span class="chip chip-domain" style="font-size:9px;">WithdrawalStatus</span></div>
+            <div class="vnode-desc">Real platforms don't auto-approve large withdrawals. An admin changes the status. Then payout fires.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">📜 Transaction History — GET /transactions</div>
+    <div class="vchain">
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body"><div class="vnode-top"><span class="vnode-label">GET /transactions</span></div></div>
+      </div>
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">TransactionController</span></div>
+          <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">TransactionController</span></div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">TransactionServiceImpl → WalletTransactionRepository</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">TransactionServiceImpl</span>
+            <span class="chip chip-repo" style="font-size:9px;">WalletTransactionRepository</span>
+            <span class="chip chip-model" style="font-size:9px;">WalletTransaction</span>
+            <span class="chip chip-domain" style="font-size:9px;">WalletTransactionType</span>
+          </div>
+          <div class="vnode-desc">Returns all DEBIT/CREDIT events for the user. Every trade, deposit, withdrawal, transfer = a row here. This is the audit trail.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#f59e0b">📋 WalletTransactionType enum</h4>
+      <ul>
+        <li>DEPOSIT — money came in from payment</li>
+        <li>WITHDRAWAL — money going out to bank</li>
+        <li>TRANSFER — moved to another user</li>
+        <li>BUY_ORDER — fiat spent on crypto</li>
+        <li>SELL_ORDER — fiat received from crypto sale</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#ef4444">🔒 WithdrawalStatus enum</h4>
+      <ul>
+        <li>PENDING — just requested</li>
+        <li>APPROVED — admin cleared it</li>
+        <li>REJECTED — admin denied it</li>
+        <li>COMPLETED — payout done</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ROLES ═══════════════ -->
+<div class="tab-panel" id="security">
+  <div class="section-title">🛡️ Roles & Access Control</div>
+  <p class="section-sub">USER_ROLE enum + Spring Security determine who can access which endpoints.</p>
+
+  <div class="flow-wrap">
+    <div class="flow-title">👥 Role Assignment on Register</div>
+    <div class="vchain">
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">User registers</span></div>
+          <div class="vnode-desc">POST /auth/register</div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">UserServiceImpl assigns role</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">UserServiceImpl</span>
+            <span class="chip chip-domain" style="font-size:9px;">USER_ROLE.ROLE_CUSTOMER</span>
+          </div>
+          <div class="vnode-desc">Default role = ROLE_CUSTOMER. Admin role set manually or via separate admin endpoint.</div>
+        </div>
+      </div>
+      <div class="vnode n-model">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🧩</div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">User saved with role embedded</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-model" style="font-size:9px;">User</span>
+            <span class="chip chip-repo" style="font-size:9px;">UserRepository</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">🚦 Endpoint Access by Role (AppConfig / Security Config)</div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:4px;">
+      <div style="background:rgba(16,185,129,0.07); border:1px solid rgba(16,185,129,0.2); border-radius:14px; padding:18px;">
+        <div style="font-size:12px;font-weight:800;color:#34d399;margin-bottom:12px;">✅ ROLE_CUSTOMER can access</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="chip chip-controller" style="font-size:9px;">POST /orders</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /assets</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /wallet</span>
+          <span class="chip chip-controller" style="font-size:9px;">POST /wallet/transfer</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /transactions</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /watchlist</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /coins/search</span>
+          <span class="chip chip-controller" style="font-size:9px;">POST /withdrawals/request</span>
+        </div>
+      </div>
+      <div style="background:rgba(168,85,247,0.07); border:1px solid rgba(168,85,247,0.2); border-radius:14px; padding:18px;">
+        <div style="font-size:12px;font-weight:800;color:#c084fc;margin-bottom:12px;">🔑 ROLE_ADMIN only</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="chip chip-controller" style="font-size:9px;">PUT /withdrawals/approve/{id}</span>
+          <span class="chip chip-controller" style="font-size:9px;">PUT /withdrawals/reject/{id}</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET /users/all</span>
+          <span class="chip chip-controller" style="font-size:9px;">DELETE /users/{id}</span>
+        </div>
+      </div>
+      <div style="background:rgba(6,182,212,0.07); border:1px solid rgba(6,182,212,0.2); border-radius:14px; padding:18px;">
+        <div style="font-size:12px;font-weight:800;color:#67e8f9;margin-bottom:12px;">🌐 Public (no token needed)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="chip chip-controller" style="font-size:9px;">POST /auth/login</span>
+          <span class="chip chip-controller" style="font-size:9px;">POST /auth/register</span>
+          <span class="chip chip-controller" style="font-size:9px;">GET / (HomeController)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#f97316">⚙️ AppConfig</h4>
+      <p>Where Spring Security beans are defined. Sets which URL patterns require which roles. Also defines CORS rules — which frontend origins are allowed to call the API.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#06b6d4">🔤 USER_ROLE enum</h4>
+      <p>Simple enum: <code>ROLE_CUSTOMER</code>, <code>ROLE_ADMIN</code>. Spring Security reads this role from the JWT payload on every request to decide access.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#10b981">🏠 HomeController</h4>
+      <p>Handles <code>GET /</code>. Returns an <code>ApiResponse</code> like "Server is running". Used for health checks, deployment verification, and uptime monitoring.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 2FA & VERIFICATION ═══════════════ -->
+<div class="tab-panel" id="auth2fa">
+  <div class="section-title">🔐 2FA, OTP & Forgot Password</div>
+  <p class="section-sub">Extra security layers on top of standard login — verification codes, 2FA, and password reset tokens.</p>
+
+  <div class="flow-cols">
+
+    <div class="flow-wrap">
+      <div class="flow-title">📧 Forgot Password Flow</div>
+      <div class="vchain">
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">POST /auth/forgot-password</span></div>
+            <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">ForgotPasswordTokenRequest { email }</span></div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">ForgotPasswordServiceImpl</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">ForgotPasswordServiceImpl</span>
+              <span class="chip chip-model" style="font-size:9px;">ForgotPasswordToken</span>
+            </div>
+            <div class="vnode-desc">Generates a secure random token. Saves it with expiry time. Sends email.</div>
+          </div>
+        </div>
+        <div class="vnode n-external">
+          <div class="vnode-line-wrap"><div class="vnode-circle">📨</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">EmailService → sends reset email</span></div>
+            <div class="vnode-files"><span class="chip chip-service" style="font-size:9px;">EmailService</span></div>
+            <div class="vnode-desc">Sends email with a link containing the token: /reset-password?token=abc123</div>
+          </div>
+        </div>
+        <div class="vnode n-repo">
+          <div class="vnode-line-wrap"><div class="vnode-circle">📦</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">ForgotPasswordRepository → ForgotPasswordToken</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-repo" style="font-size:9px;">ForgotPasswordRepository</span>
+              <span class="chip chip-model" style="font-size:9px;">ForgotPasswordToken</span>
+            </div>
+          </div>
+        </div>
+        <div class="vnode n-client" style="margin-top:8px;">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">POST /auth/reset-password</span></div>
+            <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">ResetPasswordRequest { token, newPassword }</span></div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">✅</div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">Validate token → update password</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">ForgotPasswordServiceImpl</span>
+              <span class="chip chip-repo" style="font-size:9px;">UserRepository</span>
+              <span class="chip chip-model" style="font-size:9px;">User</span>
+            </div>
+            <div class="vnode-desc">Token checked (valid? expired?). If OK → BCrypt hash new password → save User.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <div class="flow-title">🔢 OTP Verification Code Flow</div>
+      <div class="vchain">
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">User requests OTP</span></div>
+            <div class="vnode-desc">For sensitive actions: change password, enable 2FA, large withdrawal</div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">VerificationCodeServiceImpl</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">VerificationCodeServiceImpl</span>
+              <span class="chip chip-model" style="font-size:9px;">VerificationCode</span>
+              <span class="chip chip-domain" style="font-size:9px;">VerificationType</span>
+            </div>
+            <div class="vnode-desc">Generates 6-digit OTP. Stores in DB with expiry. Sends via EmailService.</div>
+          </div>
+        </div>
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">User submits OTP</span></div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">✅</div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">OTP validated → action allowed</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-repo" style="font-size:9px;">VerificationCodeRepository</span>
+            </div>
+            <div class="vnode-desc">OTP looked up, expiry checked. If valid → proceed. Then OTP row deleted.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <div class="flow-title">🔒 Two-Factor Auth (2FA) Setup</div>
+      <div class="vchain">
+        <div class="vnode n-client">
+          <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">User enables 2FA</span></div>
+            <div class="vnode-desc">POST /auth/enable-2fa</div>
+          </div>
+        </div>
+        <div class="vnode n-service">
+          <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">TwoFactorOTPServiceImpl</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-service" style="font-size:9px;">TwoFactorOTPServiceImpl</span>
+              <span class="chip chip-model" style="font-size:9px;">TwoFactorAuth</span>
+              <span class="chip chip-model" style="font-size:9px;">TwoFactorOTP</span>
+            </div>
+            <div class="vnode-desc">Creates TwoFactorAuth settings for user. Generates TOTP secret or sends OTP each login.</div>
+          </div>
+        </div>
+        <div class="vnode n-repo">
+          <div class="vnode-line-wrap"><div class="vnode-circle">📦</div></div>
+          <div class="vnode-body">
+            <div class="vnode-top"><span class="vnode-label">TwoFactorOTPRepository → TwoFactorOTP</span></div>
+            <div class="vnode-files">
+              <span class="chip chip-repo" style="font-size:9px;">TwoFactorOTPRepository</span>
+              <span class="chip chip-model" style="font-size:9px;">TwoFactorOTP</span>
+            </div>
+            <div class="vnode-desc">Stores the OTP per session. After login with OTP → deleted. User model updated with 2FA enabled flag.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#06b6d4">🔤 VerificationType enum</h4>
+      <p>Tells the system what the OTP is for: EMAIL verification, MOBILE verification, TWO_FACTOR login, PASSWORD_RESET etc. Same code handles all cases.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#10b981">📧 EmailService</h4>
+      <p>Used by both ForgotPassword and VerificationCode flows. Sends via Spring Mail (SMTP). Config comes from <code>application.properties</code> — mail host, port, credentials.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAYMENT ═══════════════ -->
+<div class="tab-panel" id="payment">
+  <div class="section-title">💳 Payment Flow — Stripe / Razorpay Integration</div>
+  <p class="section-sub">Two-step flow: create a payment session → receive webhook confirmation → credit wallet.</p>
+
+  <div class="flow-wrap">
+    <div class="flow-title">💳 Step 1 — Create Payment Session</div>
+    <div class="vchain">
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">User clicks "Add Balance"</span></div>
+          <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">POST /payment/create { amount, method }</span></div>
+        </div>
+      </div>
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentController</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-controller" style="font-size:9px;">PaymentController</span>
+            <span class="chip chip-domain" style="font-size:9px;">PaymentMethod</span>
+          </div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentServiceImpl creates PaymentOrder</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">PaymentServiceImpl</span>
+            <span class="chip chip-model" style="font-size:9px;">PaymentOrder</span>
+            <span class="chip chip-domain" style="font-size:9px;">PaymentOrderStatus.INITIATED</span>
+          </div>
+          <div class="vnode-desc">Saves a INITIATED PaymentOrder to DB, then calls Stripe/Razorpay SDK to create payment session</div>
+        </div>
+      </div>
+      <div class="vnode n-external">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌍</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">Stripe / Razorpay API</span></div>
+          <div class="vnode-files"><span class="chip chip-external" style="font-size:9px;">External Payment Gateway</span></div>
+          <div class="vnode-desc">Returns payment URL or session ID. User is redirected to complete payment on gateway's page.</div>
+        </div>
+      </div>
+      <div class="vnode n-dto">
+        <div class="vnode-line-wrap"><div class="vnode-circle">📤</div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentResponse → Client</span></div>
+          <div class="vnode-files"><span class="chip chip-dto" style="font-size:9px;">PaymentResponse { paymentUrl, orderId }</span></div>
+          <div class="vnode-desc">Client redirects user to paymentUrl. User completes payment on Stripe/Razorpay.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">📡 Step 2 — Webhook Callback (Payment Confirmed)</div>
+    <div class="vchain">
+      <div class="vnode n-external">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌍</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">Stripe/Razorpay fires webhook</span></div>
+          <div class="vnode-desc">Gateway calls POST /payment/webhook on your server after user pays. Server-to-server call.</div>
+        </div>
+      </div>
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentController — webhook endpoint</span></div>
+          <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">PaymentController</span></div>
+          <div class="vnode-desc">Validates webhook signature (security — must be from real Stripe, not attacker)</div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentServiceImpl processes success</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">PaymentServiceImpl</span>
+            <span class="chip chip-domain" style="font-size:9px;">PaymentOrderStatus.SUCCESS</span>
+          </div>
+          <div class="vnode-desc">Finds the PaymentOrder by orderId. Updates status to SUCCESS.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="atomic-box">
+      <div class="atomic-box-title">⚛️ Wallet credit — Atomic</div>
+      <div class="atomic-steps">
+        <div class="atomic-step">1️⃣ Update PaymentOrder → SUCCESS</div>
+        <div class="atomic-step">2️⃣ Credit user Wallet + paid amount</div>
+        <div class="atomic-step">3️⃣ Create WalletTransaction (DEPOSIT)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">🗂️ Payment Details — Saved User Payment Profile</div>
+    <div class="vchain">
+      <div class="vnode n-client">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🌐</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">POST /payment/details</span></div>
+          <div class="vnode-desc">User saves preferred payment method / bank account / UPI details</div>
+        </div>
+      </div>
+      <div class="vnode n-controller">
+        <div class="vnode-line-wrap"><div class="vnode-circle">🎮</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentDetailsController</span></div>
+          <div class="vnode-files"><span class="chip chip-controller" style="font-size:9px;">PaymentDetailsController</span></div>
+        </div>
+      </div>
+      <div class="vnode n-service">
+        <div class="vnode-line-wrap"><div class="vnode-circle">⚙️</div><div class="vnode-connector"></div></div>
+        <div class="vnode-body">
+          <div class="vnode-top"><span class="vnode-label">PaymentDetailsServiceImpl</span></div>
+          <div class="vnode-files">
+            <span class="chip chip-service" style="font-size:9px;">PaymentDetailsServiceImpl</span>
+            <span class="chip chip-model" style="font-size:9px;">PaymentDetails</span>
+            <span class="chip chip-repo" style="font-size:9px;">PaymentDetailsRepository</span>
+          </div>
+          <div class="vnode-desc">Stores user's preferred payment info. Useful for pre-filling forms on next deposit or withdrawal.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h4 style="color:#ec4899">💡 Why two models?</h4>
+      <p><code>PaymentOrder</code> = one specific transaction attempt (unique per payment). <code>PaymentDetails</code> = user's saved profile (reused across payments). Different lifecycles.</p>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#8b5cf6">🔤 PaymentOrderStatus enum</h4>
+      <ul>
+        <li>INITIATED — order created, awaiting payment</li>
+        <li>SUCCESS — webhook confirmed, wallet credited</li>
+        <li>FAILED — payment was declined or expired</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4 style="color:#f97316">🔑 application.properties</h4>
+      <p>Stripe API key, Razorpay key+secret, webhook secret — all stored here as environment variables. Never hardcoded in Java files.</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tab;
+      tabs.forEach(b => b.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(t).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+</script>
+</body>
+</html>
