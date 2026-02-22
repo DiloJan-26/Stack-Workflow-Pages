@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend Flow — Technical Schematic</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET ───────────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg: #07090f;
+  --bg2: #0b0e18;
+  --bg3: #0f1220;
+  --bg4: #141828;
+  --line: rgba(255,255,255,0.055);
+  --line2: rgba(255,255,255,0.1);
+  --text: #c8d4e8;
+  --dim: #4a5570;
+  --dim2: #7080a0;
+
+  /* Layer accent colors */
+  --C: #f97316;   /* config */
+  --CT: #a855f7;  /* controller */
+  --SV: #10b981;  /* service */
+  --UT: #facc15;  /* utils */
+  --RP: #f59e0b;  /* repo */
+  --MD: #3b82f6;  /* model */
+  --DM: #06b6d4;  /* domain */
+  --DT: #ec4899;  /* dto */
+  --EX: #8b5cf6;  /* external */
+  --DB: #ef4444;  /* database */
+  --CL: #22d3ee;  /* client */
+  --OK: #4ade80;  /* success */
+  --NO: #f87171;  /* fail */
+}
+
+html{scroll-behavior:smooth;}
+
+body{
+  font-family:'IBM Plex Sans',monospace,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ─── SCANLINE TEXTURE ────────────────────────────────────── */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events:none;z-index:999;
+}
+
+/* ─── GRID BG ─────────────────────────────────────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+
+/* ─── GLOWS ───────────────────────────────────────────────── */
+.glow-fixed{
+  position:fixed;pointer-events:none;z-index:0;
+  border-radius:50%;filter:blur(120px);opacity:0.07;
+}
+
+/* ─── TOP HEADER ──────────────────────────────────────────── */
+.topbar{
+  position:relative;z-index:10;
+  background:rgba(7,9,15,0.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line2);
+  padding:0 28px;
+  display:flex;align-items:center;
+  height:52px;gap:20px;
+  position:sticky;top:0;
+}
+.topbar-logo{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;font-weight:700;letter-spacing:2px;
+  color:var(--C);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+.topbar-logo .dot{width:8px;height:8px;border-radius:2px;background:var(--C);}
+.topbar-sep{width:1px;height:20px;background:var(--line2);}
+.topbar-tabs{
+  display:flex;align-items:center;gap:2px;
+  overflow-x:auto;flex:1;
+  scrollbar-width:none;
+}
+.topbar-tabs::-webkit-scrollbar{display:none;}
+.ttab{
+  padding:6px 14px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;font-weight:600;letter-spacing:.5px;
+  color:var(--dim2);background:transparent;
+  border:none;border-bottom:2px solid transparent;
+  cursor:pointer;white-space:nowrap;
+  transition:all .15s;
+}
+.ttab:hover{color:var(--text);}
+.ttab.active{color:white;border-bottom-color:currentColor;}
+
+/* ─── HERO ────────────────────────────────────────────────── */
+.hero{
+  position:relative;z-index:1;
+  padding:48px 32px 36px;
+  border-bottom:1px solid var(--line);
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:32px;align-items:center;
+}
+.hero-kicker{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:500;letter-spacing:3px;
+  text-transform:uppercase;color:var(--dim2);
+  margin-bottom:12px;
+}
+.hero-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:clamp(22px,3.5vw,36px);
+  font-weight:700;color:white;
+  line-height:1.15;letter-spacing:-0.5px;
+  margin-bottom:10px;
+}
+.hero-title .acc{color:var(--SV);}
+.hero-sub{
+  font-size:13px;color:var(--dim2);
+  font-weight:400;line-height:1.7;max-width:580px;
+}
+
+/* Legend */
+.legend{
+  display:flex;flex-direction:column;gap:5px;
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:10px;padding:14px 16px;
+  min-width:200px;flex-shrink:0;
+}
+.legend-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--dim);
+  margin-bottom:7px;
+}
+.leg-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--dim2);font-weight:500;}
+.leg-sq{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+/* ─── LAYOUT ──────────────────────────────────────────────── */
+.layout{
+  display:grid;
+  grid-template-columns:1fr;
+  position:relative;z-index:1;
+}
+.tab-panel{display:none;padding:28px 32px 80px;}
+.tab-panel.active{display:block;animation:fadeUp .25s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ─── SECTION TITLE ───────────────────────────────────────── */
+.sec-title{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:24px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--line);
+}
+.sec-title .badge{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;padding:4px 10px;
+  border-radius:4px;border:1px solid transparent;
+  flex-shrink:0;
+}
+.sec-title h2{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:16px;font-weight:700;color:white;
+  letter-spacing:-.2px;
+}
+.sec-title p{font-size:12px;color:var(--dim2);font-weight:400;line-height:1.6;margin-top:3px;}
+.sec-title .sn{
+  margin-left:auto;flex-shrink:0;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:20px;font-weight:700;color:rgba(255,255,255,.08);
+}
+
+/* ─── FLOW GRID ───────────────────────────────────────────── */
+.flow-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:14px;margin-bottom:16px;
+}
+.flow-grid.wide{grid-template-columns:1fr;}
+
+/* ─── FLOW BLOCK ──────────────────────────────────────────── */
+.flow-block{
+  background:var(--bg2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  position:relative;overflow:hidden;
+}
+.flow-block::before{
+  content:'';position:absolute;
+  top:-1px;left:0;right:0;height:2px;
+  background:var(--accent, var(--CT));
+  opacity:0.6;
+}
+.fb-head{
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px;
+}
+.fb-head .fbi{font-size:14px;}
+.fb-head .fbt{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;font-weight:700;color:white;
+  letter-spacing:.2px;
+}
+.fb-head .fbm{
+  margin-left:auto;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8.5px;color:var(--dim);
+}
+.fb-body{padding:16px;}
+
+/* ─── STEP FLOW ───────────────────────────────────────────── */
+.sf{display:flex;flex-direction:column;}
+.sn-wrap{display:flex;align-items:flex-start;gap:10px;}
+.sn-left{display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0;}
+.sn-circle{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;flex-shrink:0;
+  border:1.5px solid transparent;
+}
+.sn-line{
+  width:1.5px;flex:1;min-height:10px;
+  background:linear-gradient(to bottom,rgba(255,255,255,.1),rgba(255,255,255,.02));
+  margin:2px 0;
+}
+.sn-body{
+  flex:1;padding:8px 11px;border-radius:7px;
+  border:1px solid transparent;margin-bottom:4px;
+}
+.sn-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;font-weight:700;color:white;
+  display:block;margin-bottom:3px;
+}
+.sn-desc{font-size:10.5px;color:var(--dim2);line-height:1.6;font-weight:400;}
+.sn-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;}
+
+/* node themes */
+.n-client .sn-circle{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.3);}
+.n-client .sn-body{background:rgba(34,211,238,.03);border-color:rgba(34,211,238,.1);}
+.n-config .sn-circle{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.3);}
+.n-config .sn-body{background:rgba(249,115,22,.03);border-color:rgba(249,115,22,.1);}
+.n-ctrl  .sn-circle{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.3);}
+.n-ctrl  .sn-body{background:rgba(168,85,247,.03);border-color:rgba(168,85,247,.1);}
+.n-svc   .sn-circle{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);}
+.n-svc   .sn-body{background:rgba(16,185,129,.03);border-color:rgba(16,185,129,.1);}
+.n-util  .sn-circle{background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.3);}
+.n-util  .sn-body{background:rgba(250,204,21,.03);border-color:rgba(250,204,21,.1);}
+.n-repo  .sn-circle{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);}
+.n-repo  .sn-body{background:rgba(245,158,11,.03);border-color:rgba(245,158,11,.1);}
+.n-model .sn-circle{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);}
+.n-model .sn-body{background:rgba(59,130,246,.03);border-color:rgba(59,130,246,.1);}
+.n-ext   .sn-circle{background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.3);}
+.n-ext   .sn-body{background:rgba(139,92,246,.03);border-color:rgba(139,92,246,.1);}
+.n-dto   .sn-circle{background:rgba(236,72,153,.1);border-color:rgba(236,72,153,.3);}
+.n-dto   .sn-body{background:rgba(236,72,153,.03);border-color:rgba(236,72,153,.1);}
+.n-ok    .sn-circle{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.3);}
+.n-ok    .sn-body{background:rgba(74,222,128,.03);border-color:rgba(74,222,128,.1);}
+.n-db    .sn-circle{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);}
+.n-db    .sn-body{background:rgba(239,68,68,.03);border-color:rgba(239,68,68,.1);}
+.n-domain .sn-circle{background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.3);}
+.n-domain .sn-body{background:rgba(6,182,212,.03);border-color:rgba(6,182,212,.1);}
+
+/* ─── CHIPS ───────────────────────────────────────────────── */
+.chip{
+  display:inline-flex;align-items:center;
+  padding:2px 7px;border-radius:4px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:600;
+  border:1px solid transparent;white-space:nowrap;
+}
+.cc  {background:rgba(249,115,22,.1);color:#fb923c;border-color:rgba(249,115,22,.2);}
+.cct {background:rgba(168,85,247,.1);color:#c084fc;border-color:rgba(168,85,247,.2);}
+.cs  {background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.2);}
+.cu  {background:rgba(250,204,21,.1);color:#fde047;border-color:rgba(250,204,21,.25);}
+.cr  {background:rgba(245,158,11,.1);color:#fcd34d;border-color:rgba(245,158,11,.2);}
+.cm  {background:rgba(59,130,246,.1);color:#93c5fd;border-color:rgba(59,130,246,.2);}
+.cd  {background:rgba(6,182,212,.1);color:#67e8f9;border-color:rgba(6,182,212,.2);}
+.cdt {background:rgba(236,72,153,.1);color:#f9a8d4;border-color:rgba(236,72,153,.2);}
+.ce  {background:rgba(139,92,246,.1);color:#c4b5fd;border-color:rgba(139,92,246,.2);}
+.cdb {background:rgba(239,68,68,.1);color:#fca5a5;border-color:rgba(239,68,68,.2);}
+.cl  {background:rgba(34,211,238,.1);color:#67e8f9;border-color:rgba(34,211,238,.2);}
+.cok {background:rgba(74,222,128,.1);color:#86efac;border-color:rgba(74,222,128,.2);}
+.cno {background:rgba(248,113,113,.1);color:#fca5a5;border-color:rgba(248,113,113,.2);}
+.cst {opacity:.3;text-decoration:line-through;}
+
+/* ─── ATOMIC BOX ──────────────────────────────────────────── */
+.atomic{
+  background:rgba(245,158,11,.04);
+  border:1px dashed rgba(245,158,11,.25);
+  border-radius:7px;padding:10px 12px;
+  margin:3px 0 5px 36px;
+}
+.at-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:#fcd34d;margin-bottom:6px;
+}
+.at-steps{display:flex;flex-wrap:wrap;gap:4px;}
+.astep{
+  background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.18);
+  border-radius:4px;padding:3px 8px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:600;color:#fcd34d;
+}
+
+/* ─── BRANCH ──────────────────────────────────────────────── */
+.branches{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:7px;margin:3px 0 5px 36px;
+}
+.branch{border-radius:6px;padding:8px 10px;border:1px solid transparent;}
+.branch strong{display:block;font-size:10.5px;color:white;margin-bottom:2px;font-family:'IBM Plex Mono',monospace;}
+.branch span{font-size:9.5px;color:var(--dim2);line-height:1.55;}
+.bok{background:rgba(74,222,128,.05);border-color:rgba(74,222,128,.18);}
+.bno{background:rgba(248,113,113,.05);border-color:rgba(248,113,113,.18);}
+
+/* ─── FORK ────────────────────────────────────────────────── */
+.fork{
+  margin:3px 0 4px 36px;
+  background:var(--bg3);
+  border:1px solid var(--line);
+  border-radius:6px;padding:10px 12px;
+}
+.fork-title{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:7px;}
+.fork-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--line);}
+.fork-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.fork-icon{font-size:11px;flex-shrink:0;margin-top:1px;}
+.fork-text{}
+.fork-text .ft-label{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:white;margin-bottom:2px;}
+.fork-text .ft-chips{display:flex;flex-wrap:wrap;gap:3px;}
+
+/* ─── FILES PANEL ─────────────────────────────────────────── */
+.files-panel{
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:8px;padding:12px 14px;
+  margin-top:12px;
+}
+.files-panel-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--dim);margin-bottom:9px;
+  display:flex;align-items:center;gap:6px;
+}
+.files-chips{display:flex;flex-wrap:wrap;gap:4px;}
+
+/* ─── INFO ROW ────────────────────────────────────────────── */
+.info-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:10px;margin-top:14px;
+}
+.info-card{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:8px;padding:12px 14px;
+  border-top:2px solid transparent;
+}
+.info-card h4{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;font-weight:700;
+  margin-bottom:7px;display:flex;align-items:center;gap:5px;
+}
+.info-card p,.info-card li{font-size:11px;color:var(--dim2);line-height:1.65;font-weight:400;}
+.info-card ul{padding-left:14px;}
+code{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;
+  background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;color:#e2e8f0;
+}
+
+/* ─── BIG STACK DIAGRAM ───────────────────────────────────── */
+.stack-diagram{
+  display:flex;flex-direction:column;
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:10px;overflow:hidden;
+}
+.stack-layer{
+  display:grid;grid-template-columns:120px 1fr;
+  border-bottom:1px solid var(--line);
+  transition:background .2s;
+}
+.stack-layer:last-child{border-bottom:none;}
+.stack-layer:hover{background:rgba(255,255,255,.012);}
+.sl-meta{
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:12px 8px;border-right:1px solid var(--line);gap:4px;
+}
+.sl-icon{font-size:18px;}
+.sl-name{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-align:center;}
+.sl-dir{font-family:'IBM Plex Mono',monospace;font-size:7.5px;color:var(--dim);text-align:center;margin-top:2px;}
+.sl-files{padding:10px 14px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+.sl-files.utils-special{flex-direction:column;align-items:flex-start;gap:7px;}
+.utils-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+.utils-label{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;color:var(--dim);letter-spacing:.5px;}
+
+/* ─── MASTER FLOW (overview) ──────────────────────────────── */
+.master-flow{
+  display:flex;flex-direction:column;
+  gap:0;
+}
+.mf-step{
+  display:grid;
+  grid-template-columns:36px 1fr;
+  gap:12px;
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+  align-items:flex-start;
+}
+.mf-step:last-child{border-bottom:none;}
+.mf-num{
+  width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;font-weight:700;color:white;
+  flex-shrink:0;border:1px solid transparent;
+}
+.mf-body{}
+.mf-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;font-weight:700;color:white;margin-bottom:3px;
+}
+.mf-desc{font-size:11px;color:var(--dim2);line-height:1.6;margin-bottom:6px;}
+.mf-chips{display:flex;flex-wrap:wrap;gap:4px;}
+.phase-ref{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;color:var(--dim);
+  background:var(--bg3);border:1px solid var(--line);
+  border-radius:3px;padding:1px 5px;
+}
+
+/* ─── CODE MAP ────────────────────────────────────────────── */
+.codemap{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:2;
+  background:var(--bg3);border:1px solid var(--line);
+  border-radius:8px;padding:16px 18px;margin:12px 0;
+  white-space:pre-wrap;word-break:break-word;
+}
+.cm-c{color:#fb923c;} .cm-ct{color:#c084fc;} .cm-sv{color:#34d399;}
+.cm-ut{color:#fde047;} .cm-rp{color:#fcd34d;} .cm-md{color:#93c5fd;}
+.cm-dm{color:#67e8f9;} .cm-dt{color:#f9a8d4;} .cm-ex{color:#c4b5fd;}
+.cm-db{color:#fca5a5;} .cm-mu{color:var(--dim);}
+.cm-ar{color:rgba(255,255,255,.18);}
+
+/* ─── UTILS RULES ─────────────────────────────────────────── */
+.utils-rules{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;margin-bottom:14px;
+}
+.ur-card{border-radius:7px;padding:12px 14px;border:1px solid transparent;}
+.ur-title{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;}
+.ur-ok{background:rgba(74,222,128,.04);border-color:rgba(74,222,128,.2);}
+.ur-ok .ur-title{color:#4ade80;}
+.ur-no{background:rgba(248,113,113,.04);border-color:rgba(248,113,113,.2);}
+.ur-no .ur-title{color:#f87171;}
+.ur-ut{background:rgba(250,204,21,.04);border-color:rgba(250,204,21,.2);}
+.ur-ut .ur-title{color:#fde047;}
+.ur-chips{display:flex;flex-wrap:wrap;gap:4px;}
+
+/* ─── DIVIDER LABEL ───────────────────────────────────────── */
+.fdiv{
+  margin:7px 0 4px 36px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--dim);
+}
+
+/* ─── DOMAIN BADGE ────────────────────────────────────────── */
+.domain-row{
+  margin:6px 0 5px 36px;
+  background:rgba(6,182,212,.04);
+  border:1px solid rgba(6,182,212,.15);
+  border-radius:5px;padding:7px 10px;
+}
+.domain-row .dr-label{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#67e8f9;margin-bottom:5px;}
+.domain-row .dr-chips{display:flex;flex-wrap:wrap;gap:4px;}
+
+/* ─── ACCESS TABLE ────────────────────────────────────────── */
+.access-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px;}
+.access-col{border-radius:8px;padding:12px 14px;border:1px solid transparent;}
+.access-col h4{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.ep{font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:500;padding:3px 7px;border-radius:3px;margin-bottom:3px;display:block;color:var(--dim2);}
+
+/* ─── RESPONSIVE ──────────────────────────────────────────── */
+@media(max-width:740px){
+  .hero{grid-template-columns:1fr;padding:28px 16px 24px;}
+  .legend{display:none;}
+  .tab-panel{padding:20px 16px 60px;}
+  .flow-grid{grid-template-columns:1fr;}
+  .branches{grid-template-columns:1fr;}
+  .topbar{padding:0 16px;}
+  .codemap{font-size:9.5px;}
+}
+</style>
+</head>
+<body>
+
+<div class="glow-fixed" style="width:600px;height:600px;top:-200px;left:-100px;background:#a855f7;"></div>
+<div class="glow-fixed" style="width:500px;height:500px;bottom:-150px;right:-100px;background:#10b981;"></div>
+
+<!-- ══════════ TOP BAR ══════════ -->
+<div class="topbar">
+  <div class="topbar-logo"><div class="dot"></div>CRYPTO BACKEND</div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-tabs">
+    <button class="ttab active" data-tab="overview" style="color:var(--SV);border-bottom-color:var(--SV)">SYSTEM OVERVIEW</button>
+    <button class="ttab" data-tab="auth" style="">01 · AUTH + JWT</button>
+    <button class="ttab" data-tab="otp" style="">02 · OTP / 2FA</button>
+    <button class="ttab" data-tab="forgot" style="">03 · FORGOT PWD</button>
+    <button class="ttab" data-tab="coins" style="">04 · MARKET DATA</button>
+    <button class="ttab" data-tab="wallet" style="">05 · WALLET</button>
+    <button class="ttab" data-tab="orders" style="">06 · ORDERS</button>
+    <button class="ttab" data-tab="withdraw" style="">07 · WITHDRAWALS</button>
+    <button class="ttab" data-tab="watchlist" style="">08 · WATCHLIST</button>
+    <button class="ttab" data-tab="payments" style="">09 · PAYMENTS</button>
+    <button class="ttab" data-tab="journey" style="">FULL JOURNEY</button>
+  </div>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<div class="hero">
+  <div>
+    <div class="hero-kicker">Technical Schematic · Backend Architecture · 10 Flows</div>
+    <h1 class="hero-title">Spring Boot<br><span class="acc">Crypto Platform</span></h1>
+    <p class="hero-sub">Complete backend flow reference. Every controller, service, repository, model, domain enum, and utility — mapped to real user actions. Including the <code>utils/OtpUtils</code> layer and where it connects to the service chain.</p>
+  </div>
+  <div class="legend">
+    <div class="legend-title">LAYER KEY</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--C)"></div>config/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--CT)"></div>controller/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--SV)"></div>service/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--UT)"></div>utils/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--RP)"></div>repository/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--MD)"></div>model/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--DM)"></div>domain/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--DT)"></div>request · response/</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--EX)"></div>External API</div>
+    <div class="leg-row"><div class="leg-sq" style="background:var(--DB)"></div>MySQL</div>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- ══════════════════════════════════════════════════
+     TAB: OVERVIEW
+══════════════════════════════════════════════════ -->
+<div class="tab-panel active" id="overview">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.2)">SYSTEM</div>
+    <div>
+      <h2>Full System Overview</h2>
+      <p>Every request flows through the same stack. Security gate → Controller → Service → (Utils / External / Repo) → MySQL → Response.</p>
+    </div>
+    <div class="sn">00</div>
+  </div>
+
+  <!-- Stack diagram -->
+  <div class="stack-diagram" style="margin-bottom:20px;">
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--CL)"><div class="sl-icon">🌐</div><div class="sl-name" style="color:var(--CL)">Client</div><div class="sl-dir">Browser / App</div></div>
+      <div class="sl-files"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim2)">HTTPS JSON + Authorization: Bearer &lt;JWT&gt;</span></div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--C)"><div class="sl-icon">🛡️</div><div class="sl-name" style="color:var(--C)">Security</div><div class="sl-dir">config/</div></div>
+      <div class="sl-files">
+        <span class="chip cc">JwtTokenValidator</span>
+        <span class="chip cc">JwtProvider</span>
+        <span class="chip cc">JwtConstant</span>
+        <span class="chip cc">AppConfig</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);margin-left:4px">← runs on EVERY request before any controller</span>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--CT)"><div class="sl-icon">🎮</div><div class="sl-name" style="color:var(--CT)">Controller</div><div class="sl-dir">controller/</div></div>
+      <div class="sl-files">
+        <span class="chip cct">AuthController</span><span class="chip cct">UserController</span><span class="chip cct">WalletController</span>
+        <span class="chip cct">OrderController</span><span class="chip cct">AssetController</span><span class="chip cct">CoinController</span>
+        <span class="chip cct">WithdrawalController</span><span class="chip cct">WatchListController</span>
+        <span class="chip cct">PaymentController</span><span class="chip cct">PaymentDetailsController</span>
+        <span class="chip cct">TransactionController</span><span class="chip cct">HomeController</span>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--SV)"><div class="sl-icon">⚙️</div><div class="sl-name" style="color:var(--SV)">Service</div><div class="sl-dir">service/</div></div>
+      <div class="sl-files">
+        <span class="chip cs">UserServiceImplement</span><span class="chip cs">CustomUserDetailsService</span>
+        <span class="chip cs">WalletServiceImplement</span><span class="chip cs">TransactionServiceImplement</span>
+        <span class="chip cs">OrderServiceImplement</span><span class="chip cs">AssetServiceImplement</span>
+        <span class="chip cs">CoinServiceImplement</span><span class="chip cs">WithdrawalServiceImplement</span>
+        <span class="chip cs">WatchlistServiceImplement</span><span class="chip cs">PaymentServiceImplement</span>
+        <span class="chip cs">PaymentDetailsServiceImplement</span>
+        <span class="chip cs">ForgotPasswordServiceImplement</span>
+        <span class="chip cs">VerificationCodeServiceImplement</span>
+        <span class="chip cs">TwoFactorOTPServiceImplement</span>
+        <span class="chip cs">EmailService</span>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--UT)"><div class="sl-icon">🔧</div><div class="sl-name" style="color:var(--UT)">Utils</div><div class="sl-dir">utils/</div></div>
+      <div class="sl-files utils-special">
+        <div class="utils-row"><span class="chip cu">OtpUtils</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim2)"> ← stateless, only Service calls this</span></div>
+        <div class="utils-row">
+          <span class="utils-label">CALLERS:</span>
+          <span class="chip cs" style="font-size:8px">VerificationCodeServiceImplement</span>
+          <span class="chip cs" style="font-size:8px">TwoFactorOTPServiceImplement</span>
+          <span class="chip cs" style="font-size:8px">ForgotPasswordServiceImplement (optional)</span>
+        </div>
+        <div class="utils-row">
+          <span class="utils-label">NEVER FROM:</span>
+          <span class="chip cct cst" style="font-size:8px">controller/</span>
+          <span class="chip cr cst" style="font-size:8px">repository/</span>
+          <span class="chip cc cst" style="font-size:8px">config/</span>
+        </div>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--RP)"><div class="sl-icon">📦</div><div class="sl-name" style="color:var(--RP)">Repository</div><div class="sl-dir">repository/</div></div>
+      <div class="sl-files">
+        <span class="chip cr">UserRepository</span><span class="chip cr">WalletRepository</span><span class="chip cr">WalletTransactionRepository</span>
+        <span class="chip cr">OrderRepository</span><span class="chip cr">OrderItemRepository</span><span class="chip cr">AssetRepository</span>
+        <span class="chip cr">CoinRepository</span><span class="chip cr">WithdrawalRepository</span><span class="chip cr">WatchlistRepository</span>
+        <span class="chip cr">PaymentOrderRepository</span><span class="chip cr">PaymentDetailsRepository</span>
+        <span class="chip cr">VerificationCodeRepository</span><span class="chip cr">TwoFactorOTPRepository</span>
+        <span class="chip cr">ForgotPasswordRepository</span>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--MD)"><div class="sl-icon">🧩</div><div class="sl-name" style="color:var(--MD)">Model</div><div class="sl-dir">model/</div></div>
+      <div class="sl-files">
+        <span class="chip cm">User</span><span class="chip cm">Wallet</span><span class="chip cm">WalletTransaction</span>
+        <span class="chip cm">Order</span><span class="chip cm">OrderItem</span><span class="chip cm">Asset</span>
+        <span class="chip cm">Coin</span><span class="chip cm">Withdrawal</span><span class="chip cm">Watchlist</span>
+        <span class="chip cm">PaymentOrder</span><span class="chip cm">PaymentDetails</span>
+        <span class="chip cm">VerificationCode</span><span class="chip cm">TwoFactorAuth</span>
+        <span class="chip cm">TwoFactorOTP</span><span class="chip cm">ForgotPasswordToken</span>
+      </div>
+    </div>
+    <div class="stack-layer">
+      <div class="sl-meta" style="border-left:2px solid var(--DM)"><div class="sl-icon">🔤</div><div class="sl-name" style="color:var(--DM)">Domain</div><div class="sl-dir">domain/</div></div>
+      <div class="sl-files">
+        <span class="chip cd">USER_ROLE</span><span class="chip cd">OrderType</span><span class="chip cd">OrderStatus</span>
+        <span class="chip cd">WithdrawalStatus</span><span class="chip cd">WalletTransactionType</span>
+        <span class="chip cd">PaymentMethod</span><span class="chip cd">PaymentOrderStatus</span><span class="chip cd">VerificationType</span>
+      </div>
+    </div>
+    <div class="stack-layer" style="border-bottom:none">
+      <div class="sl-meta" style="border-left:2px solid var(--DB)"><div class="sl-icon">🗄️</div><div class="sl-name" style="color:var(--DB)">MySQL</div><div class="sl-dir">15 tables</div></div>
+      <div class="sl-files">
+        <div class="codemap" style="margin:0;padding:10px 12px;font-size:10px;line-height:1.7;background:transparent;border:none;">
+<span class="cm-sv">Service</span>  <span class="cm-ar">──calls──►</span>  <span class="cm-ut">utils/OtpUtils</span>  <span class="cm-mu">(OTP only)</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──calls──►</span>  <span class="cm-ex">External APIs</span>  <span class="cm-mu">(CoinGecko · Stripe · Razorpay)</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──calls──►</span>  <span class="cm-rp">Repositories</span>  <span class="cm-ar">──►</span>  <span class="cm-db">MySQL</span>
+<span class="cm-dt">DTOs</span>     <span class="cm-ar">──────────────────────────────────────────►</span>  <span class="cm-mu">Client</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <div class="info-card" style="border-top-color:var(--CT)"><h4 style="color:var(--CT)">🎮 Controller = Thin Router</h4><p>Read HTTP input, call one Service method, return DTO. No business logic ever lives here. 12 controllers = 12 feature areas.</p></div>
+    <div class="info-card" style="border-top-color:var(--SV)"><h4 style="color:var(--SV)">⚙️ Service = The Brain</h4><p>All rules, validation, external calls, and multi-step DB operations. Uses <code>@Transactional</code> for atomic writes. 15 services.</p></div>
+    <div class="info-card" style="border-top-color:var(--UT)"><h4 style="color:var(--UT)">🔧 Utils = Stateless Helpers</h4><p>OtpUtils has no DB, no HTTP, no Spring beans. Pure logic. Called only from Service. Easily unit-tested in isolation.</p></div>
+    <div class="info-card" style="border-top-color:var(--RP)"><h4 style="color:var(--RP)">📦 Repository = DB Clerk</h4><p>Spring Data JPA generates all SQL from method names. Zero manual SQL for standard CRUD. 14 repositories.</p></div>
+    <div class="info-card" style="border-top-color:var(--DM)"><h4 style="color:var(--DM)">🔤 Domain Enums = Vocabulary</h4><p>8 enums make the codebase type-safe. <code>OrderStatus.PENDING</code> instead of "pending" string — refactor-proof.</p></div>
+    <div class="info-card" style="border-top-color:var(--C)"><h4 style="color:var(--C)">🛡️ Config = Always-On Gate</h4><p>JwtTokenValidator intercepts every single HTTP request before any controller code runs. No valid JWT = 401, period.</p></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 01 AUTH + JWT
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="auth">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(59,130,246,.1);color:#93c5fd;border-color:rgba(59,130,246,.2)">01</div>
+    <div>
+      <h2>Authentication + JWT</h2>
+      <p>Register, Login, and the security gate that protects every other endpoint.</p>
+    </div>
+    <div class="sn">01</div>
+  </div>
+
+  <div class="flow-grid">
+    <!-- Register -->
+    <div class="flow-block" style="--accent:var(--CT)">
+      <div class="fb-head"><div class="fbi">📝</div><div class="fbt">1A · REGISTER</div><div class="fbm">POST /auth/register</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client sends credentials</span><div class="sn-chips"><span class="chip cdt">email + password + name</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AuthController</span><div class="sn-chips"><span class="chip cct">AuthController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">UserServiceImplement</span><div class="sn-chips"><span class="chip cs">UserServiceImplement.java</span><span class="chip cs">CustomUserDetailsService.java</span></div><div class="sn-desc">BCrypt encodes password. Assigns USER_ROLE.ROLE_CUSTOMER. Validates email uniqueness.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">UserRepository.save(user)</span><div class="sn-chips"><span class="chip cr">UserRepository.java</span><span class="chip cm">User.java</span></div></div></div>
+          <div class="sn-wrap n-config"><div class="sn-left"><div class="sn-circle">🔏</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">JwtProvider.generateToken()</span><div class="sn-chips"><span class="chip cc">JwtProvider.java</span><span class="chip cc">JwtConstant.java</span></div><div class="sn-desc">Signs JWT with HMAC secret. Encodes userId, role, expiry in payload.</div></div></div>
+          <div class="sn-wrap n-dto"><div class="sn-left"><div class="sn-circle">📤</div></div><div class="sn-body"><span class="sn-label">AuthResponse → Client stores JWT</span><div class="sn-chips"><span class="chip cdt">AuthResponse { jwt, status }</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login -->
+    <div class="flow-block" style="--accent:var(--C)">
+      <div class="fb-head"><div class="fbi">🔓</div><div class="fbt">1B · LOGIN</div><div class="fbm">POST /auth/login</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client</span><div class="sn-chips"><span class="chip cdt">email + password</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AuthController</span><div class="sn-chips"><span class="chip cct">AuthController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">CustomUserDetailsService loads user → password check</span><div class="sn-chips"><span class="chip cs">CustomUserDetailsService.java</span></div><div class="sn-desc">Spring Security BCrypt.matches(input, hash). Throws BadCredentials if wrong.</div></div></div>
+          <div class="sn-wrap n-config"><div class="sn-left"><div class="sn-circle">🔏</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">JwtProvider.generateToken()</span><div class="sn-chips"><span class="chip cc">JwtProvider.java</span></div></div></div>
+          <div class="sn-wrap n-dto"><div class="sn-left"><div class="sn-circle">📤</div></div><div class="sn-body"><span class="sn-label">AuthResponse { jwt } → Client</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JWT Gate -->
+    <div class="flow-block" style="--accent:var(--SV);grid-column:1/-1">
+      <div class="fb-head"><div class="fbi">🛡️</div><div class="fbt">1C · EVERY PROTECTED REQUEST — JWT GATE</div><div class="fbm">OncePerRequestFilter</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Any request with JWT</span><div class="sn-chips"><span class="chip cl">Authorization: Bearer &lt;JWT&gt;</span></div></div></div>
+          <div class="sn-wrap n-config"><div class="sn-left"><div class="sn-circle">🔍</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">JwtTokenValidator intercepts before any controller</span><div class="sn-chips"><span class="chip cc">JwtTokenValidator.java</span></div><div class="sn-desc">Reads Authorization header. Extracts token string. Passes to JwtProvider for validation.</div></div></div>
+          <div class="sn-wrap n-config"><div class="sn-left"><div class="sn-circle">✅</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">JwtProvider.validateToken() — signature + expiry</span><div class="sn-chips"><span class="chip cc">JwtProvider.java</span><span class="chip cc">JwtConstant.java</span><span class="chip cc">AppConfig.java</span></div></div></div>
+        </div>
+        <div class="branches">
+          <div class="branch bok"><strong>✅ VALID TOKEN</strong><span>Identity set in SecurityContext → request flows to the correct Controller method</span></div>
+          <div class="branch bno"><strong>❌ INVALID / EXPIRED</strong><span>401 Unauthorized returned immediately. Zero controller code runs.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cc">config/JwtTokenValidator.java</span><span class="chip cc">config/JwtProvider.java</span>
+      <span class="chip cc">config/JwtConstant.java</span><span class="chip cc">config/AppConfig.java</span>
+      <span class="chip cct">controller/AuthController.java</span>
+      <span class="chip cs">service/CustomUserDetailsService.java</span><span class="chip cs">service/UserServiceImplement.java</span>
+      <span class="chip cr">repository/UserRepository.java</span>
+      <span class="chip cm">model/User.java</span>
+      <span class="chip cdt">response/AuthResponse.java</span>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <div class="info-card" style="border-top-color:var(--C)"><h4 style="color:var(--C)">🔐 JwtConstant</h4><p>Centralizes the HMAC signing secret and expiry duration. Rotate the key here — affects the entire platform. Never in service files.</p></div>
+    <div class="info-card" style="border-top-color:var(--C)"><h4 style="color:var(--C)">🏭 JwtProvider — Two jobs</h4><ul><li><strong>generateToken()</strong> — after login, creates signed JWT</li><li><strong>validateToken()</strong> — on every request, parses + verifies</li></ul></div>
+    <div class="info-card" style="border-top-color:var(--C)"><h4 style="color:var(--C)">🚨 JwtTokenValidator</h4><p>Runs on EVERY HTTP request. If token is missing, malformed, or expired → blocked here. No business logic ever executes.</p></div>
+    <div class="info-card" style="border-top-color:var(--SV)"><h4 style="color:var(--SV)">👤 CustomUserDetailsService</h4><p>Required by Spring Security to load User by email so it can verify the BCrypt password hash during login.</p></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 02 OTP / 2FA
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="otp">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(250,204,21,.1);color:#fde047;border-color:rgba(250,204,21,.2)">02</div>
+    <div>
+      <h2>OTP · Verification · 2FA</h2>
+      <p>Three flows where <code>utils/OtpUtils</code> is called exclusively from Service. Never from controller or repository.</p>
+    </div>
+    <div class="sn">02</div>
+  </div>
+
+  <div class="utils-rules">
+    <div class="ur-card ur-ok">
+      <div class="ur-title">✅ OtpUtils called FROM</div>
+      <div class="ur-chips">
+        <span class="chip cs" style="font-size:8.5px">VerificationCodeServiceImplement</span>
+        <span class="chip cs" style="font-size:8.5px">TwoFactorOTPServiceImplement</span>
+        <span class="chip cs" style="font-size:8.5px">ForgotPasswordServiceImplement (optional)</span>
+      </div>
+    </div>
+    <div class="ur-card ur-no">
+      <div class="ur-title">❌ OtpUtils NOT from</div>
+      <div class="ur-chips">
+        <span class="chip cct cst" style="font-size:8.5px">controller/</span>
+        <span class="chip cr cst" style="font-size:8.5px">repository/</span>
+        <span class="chip cc cst" style="font-size:8.5px">config/</span>
+      </div>
+    </div>
+    <div class="ur-card ur-ut">
+      <div class="ur-title">🔧 OtpUtils Methods</div>
+      <div class="ur-chips">
+        <span class="chip cu">generateOtp()</span>
+        <span class="chip cu">verifyOtp(input, stored)</span>
+        <span class="chip cu">isExpired(expiresAt)</span>
+        <span class="chip cu">validateFormat(otp)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-grid">
+    <!-- Send Verification OTP -->
+    <div class="flow-block" style="--accent:var(--UT)">
+      <div class="fb-head"><div class="fbi">📤</div><div class="fbt">2A · SEND VERIFICATION OTP</div><div class="fbm">POST /verification/send</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client requests OTP</span><div class="sn-desc">Email verification, mobile verify, enable 2FA — same service, different VerificationType</div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AuthController / UserController</span><div class="sn-desc" style="color:#f87171;font-size:9px">🚫 No OTP logic here — thin router only</div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">VerificationCodeServiceImplement</span><div class="sn-chips"><span class="chip cs">VerificationCodeServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-util"><div class="sn-left"><div class="sn-circle">🔧</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OtpUtils.generateOtp()</span><div class="sn-chips"><span class="chip cu">utils/OtpUtils.java</span></div><div class="sn-desc">Returns secure random 6-digit string. Service receives and stores it.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">VerificationCodeRepository.save()</span><div class="sn-chips"><span class="chip cr">VerificationCodeRepository.java</span><span class="chip cm">VerificationCode { otpCode, expiresAt, used:false }</span></div></div></div>
+          <div class="sn-wrap n-ext"><div class="sn-left"><div class="sn-circle">📨</div></div><div class="sn-body"><span class="sn-label">EmailService.sendOtpEmail()</span><div class="sn-chips"><span class="chip cs">EmailService.java</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verify OTP -->
+    <div class="flow-block" style="--accent:var(--UT)">
+      <div class="fb-head"><div class="fbi">✅</div><div class="fbt">2B · VERIFY OTP</div><div class="fbm">POST /verification/verify</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">User submits 6-digit code</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Controller passes code to Service</span><div class="sn-desc" style="color:#f87171;font-size:9px">🚫 No comparison logic here</div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">VerificationCodeServiceImplement</span><div class="sn-chips"><span class="chip cs">VerificationCodeServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Repository.findLatest(user) → loads stored OTP</span><div class="sn-chips"><span class="chip cr">VerificationCodeRepository.java</span></div></div></div>
+          <div class="sn-wrap n-util"><div class="sn-left"><div class="sn-circle">🔧</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OtpUtils.verifyOtp() + isExpired()</span><div class="sn-chips"><span class="chip cu">utils/OtpUtils.java</span></div><div class="sn-desc">Compares input vs stored. Checks timestamp. Returns true/false.</div></div></div>
+        </div>
+        <div class="branches">
+          <div class="branch bok"><strong>✅ Valid + not expired</strong><span>Mark OTP used=true. Action unlocked.</span></div>
+          <div class="branch bno"><strong>❌ Wrong or expired</strong><span>Exception → 400 returned. No action.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2FA Send -->
+    <div class="flow-block" style="--accent:var(--DM)">
+      <div class="fb-head"><div class="fbi">🔐</div><div class="fbt">2C · TWO-FACTOR OTP — SEND</div><div class="fbm">POST /2fa/send</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">2FA-enabled user just logged in (no JWT yet)</span></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TwoFactorOTPServiceImplement</span><div class="sn-chips"><span class="chip cs">TwoFactorOTPServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-util"><div class="sn-left"><div class="sn-circle">🔧</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OtpUtils.generateOtp() — same util, reused</span><div class="sn-chips"><span class="chip cu">utils/OtpUtils.java</span></div><div class="sn-desc">DRY — no duplicate generation logic between VerificationCode and 2FA flows.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TwoFactorOTPRepository.save() + EmailService</span><div class="sn-chips"><span class="chip cr">TwoFactorOTPRepository.java</span><span class="chip cm">TwoFactorOTP.java</span><span class="chip cs">EmailService.java</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2FA Verify -->
+    <div class="flow-block" style="--accent:var(--DM)">
+      <div class="fb-head"><div class="fbi">🔑</div><div class="fbt">2C · TWO-FACTOR OTP — VERIFY → JWT</div><div class="fbm">POST /2fa/verify</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">User submits 2FA code from email</span></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TwoFactorOTPServiceImplement</span><div class="sn-chips"><span class="chip cs">TwoFactorOTPServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TwoFactorOTPRepository.findLatest(user)</span></div></div>
+          <div class="sn-wrap n-util"><div class="sn-left"><div class="sn-circle">🔧</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OtpUtils.verifyOtp() + isExpired()</span><div class="sn-chips"><span class="chip cu">utils/OtpUtils.java</span></div></div></div>
+        </div>
+        <div class="branches">
+          <div class="branch bok"><strong>✅ OTP correct</strong><span>Mark 2FA verified → JwtProvider.generateToken() → AuthResponse { jwt }</span></div>
+          <div class="branch bno"><strong>❌ Wrong / expired</strong><span>Exception → 400. User must retry. JWT never issued.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cu">utils/OtpUtils.java</span>
+      <span class="chip cs">service/VerificationCodeServiceImplement.java</span>
+      <span class="chip cs">service/TwoFactorOTPServiceImplement.java</span>
+      <span class="chip cs">service/EmailService.java</span>
+      <span class="chip cr">repository/VerificationCodeRepository.java</span><span class="chip cr">repository/TwoFactorOTPRepository.java</span>
+      <span class="chip cm">model/VerificationCode.java</span><span class="chip cm">model/TwoFactorOTP.java</span><span class="chip cm">model/TwoFactorAuth.java</span>
+      <span class="chip cd">domain/VerificationType.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 03 FORGOT PASSWORD
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="forgot">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(236,72,153,.1);color:#f9a8d4;border-color:rgba(236,72,153,.2)">03</div>
+    <div><h2>Forgot Password — Token-based Reset</h2><p>Request reset token → EmailService sends link → user submits token + new password → password updated.</p></div>
+    <div class="sn">03</div>
+  </div>
+  <div class="flow-grid">
+    <div class="flow-block" style="--accent:var(--DT)">
+      <div class="fb-head"><div class="fbi">📧</div><div class="fbt">3A · REQUEST RESET TOKEN</div><div class="fbm">POST /auth/forgot-password</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client sends email</span><div class="sn-chips"><span class="chip cdt">ForgotPasswordTokenRequest { email }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AuthController</span><div class="sn-chips"><span class="chip cct">AuthController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">ForgotPasswordServiceImplement</span><div class="sn-chips"><span class="chip cs">ForgotPasswordServiceImplement.java</span></div><div class="sn-desc">Creates secure random token (UUID or random hex). Saves with expiry. Sends reset link via EmailService.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">ForgotPasswordRepository.save()</span><div class="sn-chips"><span class="chip cr">ForgotPasswordRepository.java</span><span class="chip cm">ForgotPasswordToken { token, userId, expiresAt }</span></div></div></div>
+          <div class="sn-wrap n-ext"><div class="sn-left"><div class="sn-circle">📨</div></div><div class="sn-body"><span class="sn-label">EmailService.sendResetLink(token)</span><div class="sn-chips"><span class="chip cs">EmailService.java</span></div><div class="sn-desc">Email body: click /reset-password?token=abc123. Token is single-use.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--DT)">
+      <div class="fb-head"><div class="fbi">🔄</div><div class="fbt">3B · RESET PASSWORD</div><div class="fbm">POST /auth/reset-password</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">User clicks link, submits new password</span><div class="sn-chips"><span class="chip cdt">ResetPasswordRequest { token, newPassword }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AuthController</span><div class="sn-chips"><span class="chip cct">AuthController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">ForgotPasswordServiceImplement validates token</span><div class="sn-chips"><span class="chip cs">ForgotPasswordServiceImplement.java</span></div><div class="sn-desc">Looks up token in DB. Checks expiry. If valid: BCrypt hash new password.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">UserRepository.save(user with new password)</span><div class="sn-chips"><span class="chip cr">UserRepository.java</span><span class="chip cm">User.java</span></div></div></div>
+        </div>
+        <div class="branches">
+          <div class="branch bok"><strong>✅ Valid token</strong><span>Password updated. Token deleted. Done.</span></div>
+          <div class="branch bno"><strong>❌ Expired / invalid</strong><span>Exception → 400. User must request fresh token.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <div class="info-card" style="border-top-color:var(--UT)"><h4 style="color:var(--UT)">🔧 OtpUtils here?</h4><p>Optional. If the reset uses an OTP code (6 digits, no link), then OtpUtils is called. If it uses a ForgotPasswordToken (URL link), then OtpUtils is not involved in this flow.</p></div>
+    <div class="info-card" style="border-top-color:var(--MD)"><h4 style="color:var(--MD)">🔐 ForgotPasswordToken</h4><p>Single-use token. Stored with expiresAt and userId. After reset: token deleted or marked used. Prevents replay attacks — token can only reset password once.</p></div>
+  </div>
+
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cs">service/ForgotPasswordServiceImplement.java</span>
+      <span class="chip cs">service/EmailService.java</span>
+      <span class="chip cr">repository/ForgotPasswordRepository.java</span>
+      <span class="chip cr">repository/UserRepository.java</span>
+      <span class="chip cm">model/ForgotPasswordToken.java</span>
+      <span class="chip cm">model/User.java</span>
+      <span class="chip cdt">request/ForgotPasswordTokenRequest.java</span>
+      <span class="chip cdt">request/ResetPasswordRequest.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 04 MARKET DATA
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="coins">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(245,158,11,.1);color:#fcd34d;border-color:rgba(245,158,11,.2)">04</div>
+    <div><h2>Market Data — Coins</h2><p>The market page. Live prices, charts, and search — all from CoinGecko, with optional DB caching.</p></div>
+    <div class="sn">04</div>
+  </div>
+  <div class="flow-grid wide">
+    <div class="flow-block" style="--accent:var(--EX)">
+      <div class="fb-head"><div class="fbi">🪙</div><div class="fbt">COIN SEARCH / LIST / CHART</div><div class="fbm">GET /coins, /coins/search, /coins/{id}/chart</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">GET /coins/search?q=btc or /coins/{id}/chart</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">CoinController</span><div class="sn-chips"><span class="chip cct">CoinController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">CoinServiceImplement — fresh or cache?</span><div class="sn-chips"><span class="chip cs">CoinServiceImplement.java</span></div><div class="sn-desc">Checks last DB update timestamp. If stale → call CoinGecko. If fresh → return from cache. Strategy is configurable.</div></div></div>
+          <div class="sn-wrap n-ext"><div class="sn-left"><div class="sn-circle">🌍</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">CoinGecko API — live market data</span><div class="sn-chips"><span class="chip ce">External: api.coingecko.com</span></div><div class="sn-desc">Returns: price, market cap, 24h change, volume, OHLCV chart data. Called server-side — hides API key, enables caching.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">CoinRepository (cache layer)</span><div class="sn-chips"><span class="chip cr">CoinRepository.java</span><span class="chip cm">Coin.java</span></div><div class="sn-desc">Stores last-fetched data. Reduces API call frequency. Returns fast cached response for frequently viewed coins.</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">controller/CoinController.java</span>
+      <span class="chip cs">service/CoinServiceImplement.java</span>
+      <span class="chip cr">repository/CoinRepository.java</span>
+      <span class="chip cm">model/Coin.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 05 WALLET
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="wallet">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(249,115,22,.1);color:#fb923c;border-color:rgba(249,115,22,.2)">05</div>
+    <div><h2>Wallet + Transaction Ledger</h2><p>Internal bank account. Every money movement creates an auditable WalletTransaction row. Transfers are atomic.</p></div>
+    <div class="sn">05</div>
+  </div>
+  <div class="flow-grid">
+    <div class="flow-block" style="--accent:var(--RP)">
+      <div class="fb-head"><div class="fbi">💰</div><div class="fbt">5A · GET WALLET</div><div class="fbm">GET /wallet</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">GET /wallet (JWT required)</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletController</span><div class="sn-chips"><span class="chip cct">WalletController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletServiceImplement</span><div class="sn-chips"><span class="chip cs">WalletServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">WalletRepository → Wallet</span><div class="sn-chips"><span class="chip cr">WalletRepository.java</span><span class="chip cm">Wallet { userId, balance }</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--RP)">
+      <div class="fb-head"><div class="fbi">🔄</div><div class="fbt">5B · WALLET TRANSFER</div><div class="fbm">POST /wallet/transfer</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">POST /wallet/transfer</span><div class="sn-chips"><span class="chip cdt">{ receiverId, amount }</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletServiceImplement validates</span><div class="sn-chips"><span class="chip cs">WalletServiceImplement.java</span></div><div class="sn-desc">Checks sender balance ≥ amount. Receiver exists? Limits OK? Fail = exception, no writes.</div></div></div>
+        </div>
+        <div class="atomic">
+          <div class="at-title">⚛️ @Transactional — 4 writes or 0</div>
+          <div class="at-steps">
+            <div class="astep">1️⃣ Debit sender Wallet</div>
+            <div class="astep">2️⃣ Credit receiver Wallet</div>
+            <div class="astep">3️⃣ WalletTx DEBIT (sender)</div>
+            <div class="astep">4️⃣ WalletTx CREDIT (receiver)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--DM)">
+      <div class="fb-head"><div class="fbi">📜</div><div class="fbt">5C · TRANSACTION HISTORY</div><div class="fbm">GET /transactions</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">GET /transactions (JWT required)</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TransactionController</span><div class="sn-chips"><span class="chip cct">TransactionController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">TransactionServiceImplement</span><div class="sn-chips"><span class="chip cs">TransactionServiceImplement.java</span></div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">WalletTransactionRepository → all records</span><div class="sn-chips"><span class="chip cr">WalletTransactionRepository.java</span><span class="chip cm">WalletTransaction.java</span></div></div></div>
+        </div>
+        <div class="domain-row">
+          <div class="dr-label">WalletTransactionType enum</div>
+          <div class="dr-chips"><span class="chip cd">DEPOSIT</span><span class="chip cd">WITHDRAWAL</span><span class="chip cd">TRANSFER</span><span class="chip cd">BUY_ORDER</span><span class="chip cd">SELL_ORDER</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">WalletController.java</span><span class="chip cct">TransactionController.java</span>
+      <span class="chip cs">WalletServiceImplement.java</span><span class="chip cs">TransactionServiceImplement.java</span>
+      <span class="chip cr">WalletRepository.java</span><span class="chip cr">WalletTransactionRepository.java</span>
+      <span class="chip cm">Wallet.java</span><span class="chip cm">WalletTransaction.java</span>
+      <span class="chip cd">domain/WalletTransactionType.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 06 ORDERS
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="orders">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(239,68,68,.1);color:#fca5a5;border-color:rgba(239,68,68,.2)">06</div>
+    <div><h2>Orders — Buy · Sell · Portfolio</h2><p>The core exchange loop. A single order atomically updates 5 database tables. All or nothing.</p></div>
+    <div class="sn">06</div>
+  </div>
+  <div class="flow-grid">
+    <div class="flow-block" style="--accent:var(--DB);grid-column:1/-1">
+      <div class="fb-head"><div class="fbi">🛒</div><div class="fbt">6A · CREATE ORDER (BUY / SELL)</div><div class="fbm">POST /orders</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client</span><div class="sn-chips"><span class="chip cdt">CreateOrderRequest { coinId, type:BUY, amount:500 }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OrderController</span><div class="sn-chips"><span class="chip cct">OrderController.java</span><span class="chip cdt">CreateOrderRequest.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">OrderServiceImplement (@Transactional)</span><div class="sn-chips"><span class="chip cs">OrderServiceImplement.java</span><span class="chip cd">OrderType.BUY</span><span class="chip cd">OrderStatus.PENDING</span></div></div></div>
+          <div class="sn-wrap n-ext"><div class="sn-left"><div class="sn-circle">🌍</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">CoinServiceImplement → CoinGecko: live price</span><div class="sn-chips"><span class="chip cs">CoinServiceImplement.java</span><span class="chip ce">CoinGecko API</span></div><div class="sn-desc">qty = $500 ÷ currentPrice. Execution price locked at this exact moment.</div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">💳</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletServiceImplement: balance check</span><div class="sn-chips"><span class="chip cs">WalletServiceImplement.java</span></div><div class="sn-desc">If balance &lt; amount → exception → entire transaction rolls back. Zero partial writes.</div></div></div>
+        </div>
+        <div class="atomic">
+          <div class="at-title">⚛️ @Transactional — 5 writes all-or-nothing</div>
+          <div class="at-steps">
+            <div class="astep">1️⃣ Debit $500 → WalletRepository</div>
+            <div class="astep">2️⃣ Credit BTC qty → AssetRepository</div>
+            <div class="astep">3️⃣ Create Order → OrderRepository</div>
+            <div class="astep">4️⃣ Create OrderItem → OrderItemRepository</div>
+            <div class="astep">5️⃣ Log DEBIT → WalletTransactionRepository</div>
+          </div>
+        </div>
+        <div class="domain-row" style="margin-top:8px">
+          <div class="dr-label">Domain enums used in this flow</div>
+          <div class="dr-chips"><span class="chip cd">OrderType.BUY / SELL</span><span class="chip cd">OrderStatus.PENDING / COMPLETED</span><span class="chip cd">WalletTransactionType.DEBIT / CREDIT</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--MD)">
+      <div class="fb-head"><div class="fbi">📊</div><div class="fbt">6B · GET PORTFOLIO</div><div class="fbm">GET /assets</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">GET /assets</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AssetController</span><div class="sn-chips"><span class="chip cct">AssetController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">AssetServiceImplement</span><div class="sn-chips"><span class="chip cs">AssetServiceImplement.java</span></div><div class="sn-desc">Returns all holdings. Merges with live CoinGecko prices to calculate PnL.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">AssetRepository → Asset table</span><div class="sn-chips"><span class="chip cr">AssetRepository.java</span><span class="chip cm">Asset { userId, coinId, qty, avgBuyPrice }</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">OrderController.java</span><span class="chip cct">AssetController.java</span>
+      <span class="chip cdt">request/CreateOrderRequest.java</span>
+      <span class="chip cs">OrderServiceImplement.java</span><span class="chip cs">AssetServiceImplement.java</span>
+      <span class="chip cs">CoinServiceImplement.java</span><span class="chip cs">WalletServiceImplement.java</span>
+      <span class="chip cr">OrderRepository.java</span><span class="chip cr">OrderItemRepository.java</span><span class="chip cr">AssetRepository.java</span><span class="chip cr">WalletTransactionRepository.java</span>
+      <span class="chip cm">Order.java</span><span class="chip cm">OrderItem.java</span><span class="chip cm">Asset.java</span>
+      <span class="chip cd">OrderType.java</span><span class="chip cd">OrderStatus.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 07 WITHDRAWALS
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="withdraw">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(236,72,153,.1);color:#f9a8d4;border-color:rgba(236,72,153,.2)">07</div>
+    <div><h2>Withdrawals — User → Admin Lifecycle</h2><p>User requests → PENDING. Admin approves → SUCCESS. Admin declines → DECLINED + funds returned.</p></div>
+    <div class="sn">07</div>
+  </div>
+  <div class="flow-grid wide">
+    <div class="flow-block" style="--accent:var(--DT)">
+      <div class="fb-head"><div class="fbi">🏦</div><div class="fbt">FULL WITHDRAWAL LIFECYCLE</div><div class="fbm">POST /withdrawals/request → PATCH /withdrawals/{id}/proceed</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">POST /withdrawals/request (ROLE_CUSTOMER)</span><div class="sn-chips"><span class="chip cdt">{ bankAccount, amount }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WithdrawalController</span><div class="sn-chips"><span class="chip cct">WithdrawalController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WithdrawalServiceImplement validates</span><div class="sn-chips"><span class="chip cs">WithdrawalServiceImplement.java</span></div><div class="sn-desc">Check balance ≥ amount. Create Withdrawal(PENDING). Reserve funds.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WithdrawalRepository.save() + WalletTransactionRepository HOLD</span><div class="sn-chips"><span class="chip cr">WithdrawalRepository.java</span><span class="chip cm">Withdrawal.java</span><span class="chip cd">WithdrawalStatus.PENDING</span></div></div></div>
+          <div class="sn-wrap n-svc" style="margin-top:6px"><div class="sn-left"><div class="sn-circle">👤</div><div class="sn-line"></div></div><div class="sn-body" style="background:rgba(168,85,247,.035);border-color:rgba(168,85,247,.12)"><span class="sn-label">PATCH /withdrawals/{id}/proceed — ROLE_ADMIN only</span><div class="sn-chips"><span class="chip cd">WithdrawalStatus.SUCCESS or DECLINED</span></div><div class="sn-desc">AppConfig blocks this endpoint from ROLE_CUSTOMER. Admin manually reviews.</div></div></div>
+          <div class="sn-wrap n-ok"><div class="sn-left"><div class="sn-circle">✅</div></div><div class="sn-body"><span class="sn-label">Status updated → WalletTransaction finalized</span><div class="sn-desc">SUCCESS → payout executed. DECLINED → CREDIT reversal created, funds returned to wallet.</div></div></div>
+        </div>
+        <div class="domain-row" style="margin-top:8px">
+          <div class="dr-label">WithdrawalStatus enum</div>
+          <div class="dr-chips"><span class="chip cd">PENDING</span><span class="chip cd">SUCCESS</span><span class="chip cd">DECLINED</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">WithdrawalController.java</span>
+      <span class="chip cs">WithdrawalServiceImplement.java</span>
+      <span class="chip cr">WithdrawalRepository.java</span><span class="chip cr">WalletTransactionRepository.java</span>
+      <span class="chip cm">Withdrawal.java</span><span class="chip cm">WalletTransaction.java</span>
+      <span class="chip cd">WithdrawalStatus.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 08 WATCHLIST
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="watchlist">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(168,85,247,.1);color:#c084fc;border-color:rgba(168,85,247,.2)">08</div>
+    <div><h2>Watchlist — User Favourites</h2><p>Users bookmark coins. GET merges stored list with live CoinGecko prices.</p></div>
+    <div class="sn">08</div>
+  </div>
+  <div class="flow-grid wide">
+    <div class="flow-block" style="--accent:var(--CT)">
+      <div class="fb-head"><div class="fbi">⭐</div><div class="fbt">ADD + VIEW WATCHLIST</div><div class="fbm">POST /watchlist/add · GET /watchlist</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">POST /watchlist/add or GET /watchlist</span><div class="sn-chips"><span class="chip cl">JWT required</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WatchListController</span><div class="sn-chips"><span class="chip cct">WatchListController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WatchlistServiceImplement</span><div class="sn-chips"><span class="chip cs">WatchlistServiceImplement.java</span></div><div class="sn-desc">Add: validates coinId exists, adds to user's list. GET: loads stored coins, enriches with live CoinGecko prices for personalised market view.</div></div></div>
+          <div class="sn-wrap n-repo"><div class="sn-left"><div class="sn-circle">📦</div></div><div class="sn-body"><span class="sn-label">WatchlistRepository → Watchlist</span><div class="sn-chips"><span class="chip cr">WatchlistRepository.java</span><span class="chip cm">Watchlist { userId, coinIds[] }</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">WatchListController.java</span>
+      <span class="chip cs">WatchlistServiceImplement.java</span>
+      <span class="chip cr">WatchlistRepository.java</span>
+      <span class="chip cm">Watchlist.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: 09 PAYMENTS
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="payments">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(250,204,21,.1);color:#fde047;border-color:rgba(250,204,21,.2)">09</div>
+    <div><h2>Payments — Stripe / Razorpay</h2><p>Fiat on-ramp. Create session → user pays on gateway → wallet credited. Plus save payment details for reuse.</p></div>
+    <div class="sn">09</div>
+  </div>
+  <div class="flow-grid">
+    <div class="flow-block" style="--accent:var(--UT)">
+      <div class="fb-head"><div class="fbi">💳</div><div class="fbt">9A · CREATE PAYMENT SESSION</div><div class="fbm">POST /payment/create</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">User clicks "Add Balance"</span><div class="sn-chips"><span class="chip cdt">{ amount, method: RAZORPAY/STRIPE }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">PaymentController</span><div class="sn-chips"><span class="chip cct">PaymentController.java</span><span class="chip cd">PaymentMethod enum</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">PaymentServiceImplement — creates PaymentOrder(INITIATED)</span><div class="sn-chips"><span class="chip cs">PaymentServiceImplement.java</span><span class="chip cm">PaymentOrder.java</span><span class="chip cd">PaymentOrderStatus.INITIATED</span></div><div class="sn-desc">Saves INITIATED record first, then calls gateway SDK. Order exists in DB before any external call.</div></div></div>
+          <div class="sn-wrap n-ext"><div class="sn-left"><div class="sn-circle">🌍</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Razorpay / Stripe → payment URL</span><div class="sn-chips"><span class="chip ce">External: Razorpay API / Stripe API</span></div></div></div>
+          <div class="sn-wrap n-dto"><div class="sn-left"><div class="sn-circle">📤</div></div><div class="sn-body"><span class="sn-label">PaymentResponse → Client opens link + pays</span><div class="sn-chips"><span class="chip cdt">PaymentResponse { paymentUrl, orderId }</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--SV)">
+      <div class="fb-head"><div class="fbi">💸</div><div class="fbt">9B · WALLET DEPOSIT AFTER PAYMENT</div><div class="fbm">PUT /wallet/deposit</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">Client/callback — payment success signal</span><div class="sn-chips"><span class="chip cdt">{ orderId, paymentId }</span></div></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletController</span><div class="sn-chips"><span class="chip cct">WalletController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">WalletServiceImplement verifies PaymentOrder</span><div class="sn-chips"><span class="chip cs">WalletServiceImplement.java</span><span class="chip cd">PaymentOrderStatus.SUCCESS</span></div></div></div>
+        </div>
+        <div class="atomic">
+          <div class="at-title">⚛️ Atomic wallet credit</div>
+          <div class="at-steps">
+            <div class="astep">1️⃣ PaymentOrder → SUCCESS</div>
+            <div class="astep">2️⃣ Credit Wallet + amount</div>
+            <div class="astep">3️⃣ WalletTransaction DEPOSIT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-block" style="--accent:var(--EX)">
+      <div class="fb-head"><div class="fbi">🗂️</div><div class="fbt">9C · SAVE PAYMENT DETAILS</div><div class="fbm">POST /payment/details</div></div>
+      <div class="fb-body">
+        <div class="sf">
+          <div class="sn-wrap n-client"><div class="sn-left"><div class="sn-circle">🌐</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">User saves UPI ID / bank / card preference</span></div></div>
+          <div class="sn-wrap n-ctrl"><div class="sn-left"><div class="sn-circle">🎮</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">PaymentDetailsController</span><div class="sn-chips"><span class="chip cct">PaymentDetailsController.java</span></div></div></div>
+          <div class="sn-wrap n-svc"><div class="sn-left"><div class="sn-circle">⚙️</div><div class="sn-line"></div></div><div class="sn-body"><span class="sn-label">PaymentDetailsServiceImplement → DB</span><div class="sn-chips"><span class="chip cs">PaymentDetailsServiceImplement.java</span><span class="chip cm">PaymentDetails.java</span><span class="chip cr">PaymentDetailsRepository.java</span></div><div class="sn-desc">Stored as the user's saved profile. Pre-fills forms on next deposit or withdrawal.</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="files-panel">
+    <div class="files-panel-title">📁 FILES INVOLVED</div>
+    <div class="files-chips">
+      <span class="chip cct">PaymentController.java</span><span class="chip cct">PaymentDetailsController.java</span>
+      <span class="chip cs">PaymentServiceImplement.java</span><span class="chip cs">PaymentDetailsServiceImplement.java</span>
+      <span class="chip cr">PaymentOrderRepository.java</span><span class="chip cr">PaymentDetailsRepository.java</span>
+      <span class="chip cm">PaymentOrder.java</span><span class="chip cm">PaymentDetails.java</span>
+      <span class="chip cdt">response/PaymentResponse.java</span>
+      <span class="chip cd">PaymentMethod.java</span><span class="chip cd">PaymentOrderStatus.java</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TAB: FULL JOURNEY
+══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="journey">
+  <div class="sec-title">
+    <div class="badge" style="background:rgba(34,211,238,.1);color:#67e8f9;border-color:rgba(34,211,238,.2)">END-TO-END</div>
+    <div><h2>Complete Real User Journey</h2><p>From first opening the app to a completed trade — every step mapped to files and flows.</p></div>
+    <div class="sn">∞</div>
+  </div>
+
+  <div class="master-flow">
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(100,116,139,.1);border-color:rgba(100,116,139,.25);color:#94a3b8">1</div>
+      <div class="mf-body">
+        <div class="mf-title">User opens app → health check</div>
+        <div class="mf-desc">GET / hits HomeController, returns "server running". Confirms backend is reachable. Public endpoint — no JWT required.</div>
+        <div class="mf-chips"><span class="chip cct">HomeController</span><span class="chip cdt">ApiResponse</span><span class="phase-ref">FLOW 10</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.25);color:#3b82f6">2</div>
+      <div class="mf-body">
+        <div class="mf-title">Signup / Login → JWT issued</div>
+        <div class="mf-desc">AuthController → UserServiceImpl → UserRepository → JwtProvider.generateToken() → AuthResponse { jwt }. Client stores JWT for all future calls.</div>
+        <div class="mf-chips"><span class="chip cct">AuthController</span><span class="chip cs">UserServiceImpl</span><span class="chip cc">JwtProvider</span><span class="chip cdt">AuthResponse</span><span class="phase-ref">FLOW 01</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.25);color:#facc15">3</div>
+      <div class="mf-body">
+        <div class="mf-title">2FA enabled → OtpUtils → verify → JWT</div>
+        <div class="mf-desc">TwoFactorOTPServiceImplement calls OtpUtils.generateOtp() → EmailService sends → user submits code → OtpUtils.verifyOtp() validates → JWT issued.</div>
+        <div class="mf-chips"><span class="chip cu">OtpUtils</span><span class="chip cs">TwoFactorOTPServiceImpl</span><span class="chip cs">EmailService</span><span class="phase-ref">FLOW 02</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.25);color:#f59e0b">4</div>
+      <div class="mf-body">
+        <div class="mf-title">Browse market, search coins</div>
+        <div class="mf-desc">CoinController → CoinServiceImplement → CoinGecko API → live prices, charts, market caps. Optional DB caching for performance.</div>
+        <div class="mf-chips"><span class="chip cct">CoinController</span><span class="chip cs">CoinServiceImpl</span><span class="chip ce">CoinGecko</span><span class="phase-ref">FLOW 04</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.25);color:#f97316">5</div>
+      <div class="mf-body">
+        <div class="mf-title">Deposit money → wallet credited</div>
+        <div class="mf-desc">PaymentController → PaymentServiceImpl → Razorpay/Stripe link → user pays externally → PUT /wallet/deposit → WalletServiceImpl atomically credits wallet + creates WalletTransaction DEPOSIT.</div>
+        <div class="mf-chips"><span class="chip cct">PaymentController</span><span class="chip ce">Stripe/Razorpay</span><span class="chip cs">WalletServiceImpl</span><span class="chip cm">WalletTransaction</span><span class="phase-ref">FLOW 09</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.25);color:#ef4444">6</div>
+      <div class="mf-body">
+        <div class="mf-title">Buy BTC → 5 atomic DB writes</div>
+        <div class="mf-desc">OrderController → OrderServiceImpl (@Transactional) → CoinGecko live price → balance check → debit Wallet + credit Asset + create Order + OrderItem + WalletTransaction. All succeed or all rollback.</div>
+        <div class="mf-chips"><span class="chip cct">OrderController</span><span class="chip cs">OrderServiceImpl</span><span class="chip ce">CoinGecko</span><span class="chip cr">5 Repositories</span><span class="phase-ref">FLOW 06</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(236,72,153,.1);border-color:rgba(236,72,153,.25);color:#ec4899">7</div>
+      <div class="mf-body">
+        <div class="mf-title">Request withdrawal → PENDING → Admin → SUCCESS</div>
+        <div class="mf-desc">WithdrawalController → WithdrawalServiceImpl → saves Withdrawal(PENDING) → Admin PATCH /withdrawals/{id}/proceed (ROLE_ADMIN) → status SUCCESS or DECLINED.</div>
+        <div class="mf-chips"><span class="chip cct">WithdrawalController</span><span class="chip cs">WithdrawalServiceImpl</span><span class="chip cd">WithdrawalStatus</span><span class="phase-ref">FLOW 07</span></div>
+      </div>
+    </div>
+    <div class="mf-step">
+      <div class="mf-num" style="background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.25);color:#a855f7">8</div>
+      <div class="mf-body">
+        <div class="mf-title">Add coins to watchlist</div>
+        <div class="mf-desc">WatchListController → WatchlistServiceImpl → WatchlistRepository saves coinId. GET returns list enriched with live CoinGecko prices.</div>
+        <div class="mf-chips"><span class="chip cct">WatchListController</span><span class="chip cs">WatchlistServiceImpl</span><span class="chip cm">Watchlist</span><span class="phase-ref">FLOW 08</span></div>
+      </div>
+    </div>
+    <div class="mf-step" style="border-bottom:none">
+      <div class="mf-num" style="background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.25);color:#22d3ee">9</div>
+      <div class="mf-body">
+        <div class="mf-title">View full transaction history</div>
+        <div class="mf-desc">TransactionController → TransactionServiceImpl → WalletTransactionRepository returns every DEBIT/CREDIT event: deposits, buys, sells, transfers, withdrawals — full audit trail.</div>
+        <div class="mf-chips"><span class="chip cct">TransactionController</span><span class="chip cs">TransactionServiceImpl</span><span class="chip cr">WalletTransactionRepository</span><span class="phase-ref">FLOW 05</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Master code map -->
+  <div style="margin-top:24px;margin-bottom:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:white;letter-spacing:.5px">MASTER ARCHITECTURE — ONE LINE PER RULE</div>
+  <div class="codemap">
+<span class="cm-mu"># Every request path</span>
+<span class="cm-mu">Client</span>  <span class="cm-ar">──►</span>  <span class="cm-c">JwtTokenValidator</span>  <span class="cm-ar">──valid──►</span>  <span class="cm-ct">Controller</span>  <span class="cm-ar">──delegates──►</span>  <span class="cm-sv">Service</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──may call──►</span>  <span class="cm-ut">utils/OtpUtils</span>        <span class="cm-mu"># OTP generation / verification only</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──may call──►</span>  <span class="cm-ex">External APIs</span>         <span class="cm-mu"># CoinGecko · Stripe · Razorpay</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──calls──────►</span>  <span class="cm-rp">Repositories</span>  <span class="cm-ar">──►</span>  <span class="cm-db">MySQL</span>
+<span class="cm-sv">Service</span>  <span class="cm-ar">──returns──►</span>  <span class="cm-ct">Controller</span>  <span class="cm-ar">──►</span>  <span class="cm-dt">Response DTO</span>  <span class="cm-ar">──►</span>  <span class="cm-mu">Client</span>
+
+<span class="cm-mu"># OtpUtils rule (non-negotiable)</span>
+<span class="cm-ut">OtpUtils</span>  <span class="cm-ar">←called by←</span>  <span class="cm-sv">VerificationCodeServiceImplement</span>
+<span class="cm-ut">OtpUtils</span>  <span class="cm-ar">←called by←</span>  <span class="cm-sv">TwoFactorOTPServiceImplement</span>
+<span class="cm-ut">OtpUtils</span>  <span class="cm-ar">←called by←</span>  <span class="cm-sv">ForgotPasswordServiceImplement</span>  <span class="cm-mu">(optional)</span>
+<span class="cm-ut">OtpUtils</span>  <span class="cm-ar">  NEVER from</span>  <span class="cm-ct">controller/</span>  <span class="cm-ar">or</span>  <span class="cm-rp">repository/</span>  <span class="cm-ar">or</span>  <span class="cm-c">config/</span>
+
+<span class="cm-mu"># @Transactional rule</span>
+<span class="cm-sv">OrderServiceImplement</span>   <span class="cm-ar">→ 5 atomic writes (wallet + asset + order + orderitem + tx)</span>
+<span class="cm-sv">WalletServiceImplement</span>  <span class="cm-ar">→ 4 atomic writes (debit + credit + 2x walletTransaction)</span></div>
+
+  <div class="info-row">
+    <div class="info-card" style="border-top-color:var(--C)"><h4 style="color:var(--C)">🛡️ Security always first</h4><p>JwtTokenValidator runs before every single request. Public endpoints (/auth/**, GET /) are whitelisted in AppConfig. Everything else requires a valid JWT with the correct USER_ROLE.</p></div>
+    <div class="info-card" style="border-top-color:var(--SV)"><h4 style="color:var(--SV)">⚛️ @Transactional is critical</h4><p>Used in OrderServiceImpl and WalletServiceImpl for any multi-table operation. Spring rolls back ALL writes in the block if any single step fails. Money can never vanish mid-operation.</p></div>
+    <div class="info-card" style="border-top-color:var(--UT)"><h4 style="color:var(--UT)">🔧 OtpUtils — only 3 callers</h4><p>Touches exactly 3 services. Stateless — no DB, no HTTP, no beans. Pure Java logic. Can be unit-tested in complete isolation with no Spring context required.</p></div>
+    <div class="info-card" style="border-top-color:var(--EX)"><h4 style="color:var(--EX)">🌍 External APIs server-side</h4><p>CoinGecko, Stripe, Razorpay are all called from the Service layer — never from the browser. Hides API keys, enables caching, allows rate limiting and transformation.</p></div>
+  </div>
+</div>
+
+</div><!-- /layout -->
+
+<script>
+const tabs = document.querySelectorAll('.ttab');
+const panels = document.querySelectorAll('.tab-panel');
+
+function activate(id){
+  tabs.forEach(t=>{
+    const match = t.dataset.tab === id;
+    t.classList.toggle('active', match);
+    if(match){
+      // pull out inline color from CSS var for the active border
+      const col = getComputedStyle(document.documentElement)
+        .getPropertyValue('--SV').trim();
+      t.style.borderBottomColor = match ? t.style.color || '' : '';
+    }
+  });
+  panels.forEach(p => p.classList.toggle('active', p.id === id));
+  document.querySelector('.layout')?.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+tabs.forEach(tab=>{
+  tab.addEventListener('click',()=>activate(tab.dataset.tab));
+});
+</script>
+</body>
+</html>
