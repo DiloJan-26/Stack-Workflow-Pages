@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoBackend — Architecture Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & TOKENS ─────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050510;
+  --s1:#0a0a1a;
+  --s2:#0f0f22;
+  --s3:#14142e;
+  --border:rgba(255,255,255,0.06);
+  --border2:rgba(255,255,255,0.11);
+  --text:#dde4f0;
+  --muted:#5a6680;
+  --muted2:#8899bb;
+
+  --config:#f97316;
+  --controller:#a855f7;
+  --service:#10b981;
+  --repo:#f59e0b;
+  --model:#3b82f6;
+  --domain:#06b6d4;
+  --dto:#ec4899;
+  --utils:#facc15;
+  --external:#8b5cf6;
+  --db:#ef4444;
+  --client:#22d3ee;
+}
+
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Outfit',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* animated mesh bg */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%,rgba(168,85,247,0.06) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 30% at 80% 80%,rgba(16,185,129,0.05) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 50% at 60% 30%,rgba(59,130,246,0.04) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.012) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── HEADER ───────────────────────────────────────*/
+.header{
+  position:relative;z-index:10;
+  text-align:center;
+  padding:60px 24px 44px;
+  border-bottom:1px solid var(--border);
+}
+.header-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(168,85,247,0.1);
+  border:1px solid rgba(168,85,247,0.28);
+  color:#c084fc;
+  font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+  padding:7px 18px;border-radius:100px;margin-bottom:22px;
+}
+.header h1{
+  font-size:clamp(2rem,5vw,3.4rem);
+  font-weight:900;line-height:1.1;
+  background:linear-gradient(135deg,#f97316 0%,#a855f7 35%,#3b82f6 65%,#10b981 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:14px;
+  letter-spacing:-1px;
+}
+.header-sub{
+  color:var(--muted2);font-size:15px;font-weight:500;
+  max-width:540px;margin:0 auto 28px;line-height:1.7;
+}
+.layer-legend{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+}
+.ll{
+  display:flex;align-items:center;gap:6px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:7px;padding:5px 12px;
+  font-size:11px;font-weight:600;color:var(--muted2);
+  font-family:'JetBrains Mono',monospace;
+}
+.ll-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0;}
+
+/* ── SIDEBAR + LAYOUT ─────────────────────────── */
+.app{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  min-height:calc(100vh - 260px);
+  position:relative;z-index:1;
+}
+
+.sidebar{
+  border-right:1px solid var(--border);
+  padding:20px 12px;
+  position:sticky;top:0;height:calc(100vh - 260px);
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.08) transparent;
+}
+.sidebar-group{
+  margin-bottom:6px;
+}
+.sidebar-label{
+  font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);padding:0 10px;margin:14px 0 6px;
+}
+.nav-btn{
+  width:100%;
+  display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border-radius:9px;
+  border:1px solid transparent;background:transparent;
+  color:var(--muted2);
+  font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:600;
+  cursor:pointer;text-align:left;
+  transition:all 0.18s ease;
+  margin-bottom:2px;
+}
+.nav-btn:hover{background:var(--s2);color:var(--text);}
+.nav-btn.active{
+  background:var(--s2);
+  border-color:var(--border2);
+  color:white;
+}
+.nav-btn .nav-dot{
+  width:8px;height:8px;border-radius:3px;flex-shrink:0;
+  transition:transform 0.2s;
+}
+.nav-btn.active .nav-dot{transform:scale(1.3);}
+.nav-btn .nav-icon{font-size:14px;width:18px;text-align:center;}
+
+/* ── CONTENT ───────────────────────────────────── */
+.content{
+  overflow-y:auto;
+  padding:32px 32px 80px;
+}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;animation:fadeUp .3s ease;}
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(12px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* ── SECTION HEAD ──────────────────────────────── */
+.section-head{margin-bottom:28px;}
+.section-head h2{
+  font-size:22px;font-weight:800;color:white;
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:6px;
+}
+.section-head p{font-size:13px;color:var(--muted2);font-weight:500;line-height:1.7;}
+
+/* ── ARCH GRID ─────────────────────────────────── */
+.arch-grid{
+  border:1px solid var(--border);
+  border-radius:18px;overflow:hidden;
+  margin-bottom:24px;
+}
+.arch-row{
+  display:grid;grid-template-columns:100px 1fr;
+  border-bottom:1px solid var(--border);
+  transition:background .2s;
+}
+.arch-row:last-child{border-bottom:none;}
+.arch-row:hover{background:rgba(255,255,255,0.018);}
+.arch-meta{
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:14px 8px;border-right:1px solid var(--border);gap:5px;
+}
+.arch-meta .em{font-size:18px;}
+.arch-meta .name{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-align:center;}
+.arch-meta .dir{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted);text-align:center;}
+.arch-files{
+  padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+}
+/* utils special row */
+.arch-row.utils-row .arch-files{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 16px;}
+.utils-sub{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+.utils-sub-label{font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted);}
+
+/* ── CHIPS ─────────────────────────────────────── */
+.chip{
+  display:inline-flex;align-items:center;
+  padding:4px 10px;border-radius:6px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:600;
+  border:1px solid transparent;
+  cursor:default;transition:all .18s;white-space:nowrap;
+}
+.chip:hover{transform:translateY(-1px);filter:brightness(1.15);}
+.c-config    {background:rgba(249,115,22,.1); color:#fb923c; border-color:rgba(249,115,22,.22);}
+.c-controller{background:rgba(168,85,247,.1); color:#c084fc; border-color:rgba(168,85,247,.22);}
+.c-service   {background:rgba(16,185,129,.1); color:#34d399; border-color:rgba(16,185,129,.22);}
+.c-repo      {background:rgba(245,158,11,.1); color:#fcd34d; border-color:rgba(245,158,11,.22);}
+.c-model     {background:rgba(59,130,246,.1); color:#93c5fd; border-color:rgba(59,130,246,.22);}
+.c-domain    {background:rgba(6,182,212,.1);  color:#67e8f9; border-color:rgba(6,182,212,.22);}
+.c-dto       {background:rgba(236,72,153,.1); color:#f9a8d4; border-color:rgba(236,72,153,.22);}
+.c-utils     {background:rgba(250,204,21,.1); color:#fde047; border-color:rgba(250,204,21,.28);}
+.c-external  {background:rgba(139,92,246,.1); color:#c4b5fd; border-color:rgba(139,92,246,.22);}
+.c-client    {background:rgba(34,211,238,.1); color:#67e8f9; border-color:rgba(34,211,238,.22);}
+.c-db        {background:rgba(239,68,68,.1);  color:#fca5a5; border-color:rgba(239,68,68,.22);}
+.c-strike    {opacity:.35;text-decoration:line-through;}
+
+/* ── FLOW CARDS ────────────────────────────────── */
+.flows-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  gap:18px;
+  margin-bottom:20px;
+}
+.flow-card{
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:22px 20px;
+  position:relative;overflow:hidden;
+}
+.flow-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:160px;height:160px;border-radius:50%;
+  background:var(--glow,rgba(168,85,247,.04));
+  pointer-events:none;
+}
+.flow-card h3{
+  font-size:13px;font-weight:800;color:white;
+  margin-bottom:18px;display:flex;align-items:center;gap:8px;
+  letter-spacing:.1px;
+}
+
+/* ── VCHAIN (vertical step flow) ───────────────── */
+.vchain{display:flex;flex-direction:column;}
+.vnode{display:flex;align-items:flex-start;gap:12px;}
+.vnode-side{
+  display:flex;flex-direction:column;align-items:center;
+  width:32px;flex-shrink:0;
+}
+.vnode-circle{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;border:2px solid transparent;
+}
+.vnode-line{
+  width:2px;flex:1;min-height:14px;
+  background:linear-gradient(to bottom,rgba(255,255,255,.08),rgba(255,255,255,.02));
+  margin:3px 0;
+}
+.vnode-body{
+  flex:1;padding:10px 14px;
+  border-radius:10px;border:1px solid transparent;
+  margin-bottom:6px;
+}
+.vnode-label{font-size:12px;font-weight:700;color:white;margin-bottom:4px;display:block;}
+.vnode-desc{font-size:11px;color:var(--muted2);line-height:1.6;font-weight:500;}
+.vnode-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+
+/* node themes */
+.n-client     .vnode-circle{background:rgba(34,211,238,.12); border-color:rgba(34,211,238,.35);}
+.n-client     .vnode-body  {background:rgba(34,211,238,.04); border-color:rgba(34,211,238,.12);}
+.n-config     .vnode-circle{background:rgba(249,115,22,.12); border-color:rgba(249,115,22,.35);}
+.n-config     .vnode-body  {background:rgba(249,115,22,.04); border-color:rgba(249,115,22,.12);}
+.n-controller .vnode-circle{background:rgba(168,85,247,.12); border-color:rgba(168,85,247,.35);}
+.n-controller .vnode-body  {background:rgba(168,85,247,.04); border-color:rgba(168,85,247,.12);}
+.n-service    .vnode-circle{background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35);}
+.n-service    .vnode-body  {background:rgba(16,185,129,.04); border-color:rgba(16,185,129,.12);}
+.n-utils      .vnode-circle{background:rgba(250,204,21,.12); border-color:rgba(250,204,21,.35);}
+.n-utils      .vnode-body  {background:rgba(250,204,21,.04); border-color:rgba(250,204,21,.12);}
+.n-repo       .vnode-circle{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.35);}
+.n-repo       .vnode-body  {background:rgba(245,158,11,.04); border-color:rgba(245,158,11,.12);}
+.n-model      .vnode-circle{background:rgba(59,130,246,.12); border-color:rgba(59,130,246,.35);}
+.n-model      .vnode-body  {background:rgba(59,130,246,.04); border-color:rgba(59,130,246,.12);}
+.n-dto        .vnode-circle{background:rgba(236,72,153,.12); border-color:rgba(236,72,153,.35);}
+.n-dto        .vnode-body  {background:rgba(236,72,153,.04); border-color:rgba(236,72,153,.12);}
+.n-external   .vnode-circle{background:rgba(139,92,246,.12); border-color:rgba(139,92,246,.35);}
+.n-external   .vnode-body  {background:rgba(139,92,246,.04); border-color:rgba(139,92,246,.12);}
+.n-db         .vnode-circle{background:rgba(239,68,68,.12);  border-color:rgba(239,68,68,.35);}
+.n-db         .vnode-body  {background:rgba(239,68,68,.04);  border-color:rgba(239,68,68,.12);}
+.n-success    .vnode-circle{background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35);}
+.n-success    .vnode-body  {background:rgba(16,185,129,.04); border-color:rgba(16,185,129,.12);}
+
+/* ── ATOMIC BOX ────────────────────────────────── */
+.atomic{
+  background:rgba(245,158,11,.05);
+  border:1px dashed rgba(245,158,11,.3);
+  border-radius:10px;padding:12px 14px;
+  margin:4px 0 8px 44px;
+}
+.atomic-title{
+  font-size:9px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:#fcd34d;margin-bottom:8px;
+}
+.atomic-steps{display:flex;flex-wrap:wrap;gap:6px;}
+.atomic-step{
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+  border-radius:6px;padding:5px 10px;
+  font-size:10.5px;font-weight:600;color:#fcd34d;
+  font-family:'JetBrains Mono',monospace;
+}
+
+/* ── BRANCH ────────────────────────────────────── */
+.branches{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 8px 44px;}
+.branch{border-radius:9px;padding:10px 12px;border:1px solid transparent;}
+.branch strong{display:block;font-size:11.5px;color:white;margin-bottom:3px;}
+.branch span{font-size:10.5px;color:var(--muted2);line-height:1.5;}
+.branch-ok  {background:rgba(16,185,129,.06); border-color:rgba(16,185,129,.2);}
+.branch-fail{background:rgba(239,68,68,.06);  border-color:rgba(239,68,68,.2);}
+
+/* ── INFO CARDS ────────────────────────────────── */
+.info-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;margin-top:20px;
+}
+.info-card{
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:12px;padding:16px;
+}
+.info-card h4{
+  font-size:11.5px;font-weight:700;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.info-card p,.info-card li{
+  font-size:11.5px;color:var(--muted2);line-height:1.7;font-weight:500;
+}
+.info-card ul{padding-left:14px;}
+
+/* ── RULE BANNERS ──────────────────────────────── */
+.rule-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px;margin-bottom:24px;
+}
+.rule-card{border-radius:12px;padding:14px 16px;border:1px solid transparent;}
+.rule-card .r-title{font-size:9.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
+.rule-card .r-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.rule-ok  {background:rgba(16,185,129,.06); border-color:rgba(16,185,129,.22);}
+.rule-ok .r-title{color:#34d399;}
+.rule-no  {background:rgba(239,68,68,.06);  border-color:rgba(239,68,68,.22);}
+.rule-no .r-title{color:#f87171;}
+.rule-util{background:rgba(250,204,21,.06); border-color:rgba(250,204,21,.22);}
+.rule-util .r-title{color:#fde047;}
+
+/* ── CODE BLOCK ────────────────────────────────── */
+.code-map{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11.5px;line-height:2;
+  background:rgba(0,0,0,.25);
+  border:1px solid var(--border);
+  border-radius:12px;padding:20px 22px;
+}
+.cm-config    {color:#fb923c;}
+.cm-controller{color:#c084fc;}
+.cm-service   {color:#34d399;}
+.cm-repo      {color:#fcd34d;}
+.cm-model     {color:#93c5fd;}
+.cm-utils     {color:#fde047;}
+.cm-ext       {color:#c4b5fd;}
+.cm-db        {color:#fca5a5;}
+.cm-muted     {color:var(--muted);}
+.cm-arrow     {color:rgba(255,255,255,.2);}
+
+/* ── DIVIDER TEXT ──────────────────────────────── */
+.flow-divider{
+  margin:10px 0 6px 44px;
+  font-size:9.5px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);
+}
+
+/* ── DB TABLE GRID ─────────────────────────────── */
+.db-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:8px;margin-bottom:20px;
+}
+.db-table{
+  background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.18);
+  border-radius:10px;padding:12px;text-align:center;
+  transition:all .2s;cursor:default;
+}
+.db-table:hover{background:rgba(239,68,68,.09);transform:translateY(-2px);}
+.db-table .dt-icon{font-size:22px;margin-bottom:5px;}
+.db-table .dt-name{font-size:11px;font-weight:700;color:white;margin-bottom:3px;}
+.db-table .dt-desc{font-size:9.5px;color:var(--muted2);}
+
+/* ── ACCESS TABLE ──────────────────────────────── */
+.access-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;margin-bottom:20px;
+}
+.access-col{border-radius:12px;padding:16px;border:1px solid transparent;}
+.access-col h4{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+.access-col .ep{
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:600;
+  padding:4px 8px;border-radius:5px;margin-bottom:4px;display:block;color:var(--muted2);
+}
+
+/* ── RESPONSIVE ────────────────────────────────── */
+@media(max-width:720px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);
+    display:flex;flex-wrap:wrap;gap:4px;padding:12px;}
+  .sidebar-label{display:none;}
+  .nav-btn{width:auto;flex:0 0 auto;}
+  .content{padding:20px 16px 60px;}
+  .flows-grid{grid-template-columns:1fr;}
+  .branches{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header">
+  <div class="header-badge">🔬 Backend Architecture Visualizer</div>
+  <h1>Crypto Trading Platform<br>Every File. Every Flow.</h1>
+  <p class="header-sub">A complete interactive map of the Spring Boot backend — all controllers, services, repositories, models, enums, and the OtpUtils layer. Built for learning, not production.</p>
+  <div class="layer-legend">
+    <div class="ll"><div class="ll-dot" style="background:var(--config)"></div>config/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--controller)"></div>controller/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--service)"></div>service/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--utils)"></div>utils/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--repo)"></div>repository/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--model)"></div>model/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--domain)"></div>domain/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--dto)"></div>request/response/</div>
+    <div class="ll"><div class="ll-dot" style="background:var(--external)"></div>External API</div>
+  </div>
+</header>
+
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav class="sidebar">
+  <div class="sidebar-label">Overview</div>
+  <button class="nav-btn active" data-tab="arch">
+    <span class="nav-icon">📦</span>
+    <div class="nav-dot" style="background:var(--controller)"></div>
+    Full Architecture
+  </button>
+  <button class="nav-btn" data-tab="boot">
+    <span class="nav-icon">🚀</span>
+    <div class="nav-dot" style="background:var(--db)"></div>
+    App Boot
+  </button>
+
+  <div class="sidebar-label">Security</div>
+  <button class="nav-btn" data-tab="jwt">
+    <span class="nav-icon">🔑</span>
+    <div class="nav-dot" style="background:var(--config)"></div>
+    JWT & Auth
+  </button>
+  <button class="nav-btn" data-tab="roles">
+    <span class="nav-icon">🛡️</span>
+    <div class="nav-dot" style="background:var(--db)"></div>
+    Roles & Access
+  </button>
+
+  <div class="sidebar-label">Trading</div>
+  <button class="nav-btn" data-tab="orders">
+    <span class="nav-icon">📈</span>
+    <div class="nav-dot" style="background:var(--service)"></div>
+    Orders & Portfolio
+  </button>
+  <button class="nav-btn" data-tab="coins">
+    <span class="nav-icon">🪙</span>
+    <div class="nav-dot" style="background:var(--external)"></div>
+    Coins & Watchlist
+  </button>
+
+  <div class="sidebar-label">Finance</div>
+  <button class="nav-btn" data-tab="wallet">
+    <span class="nav-icon">💰</span>
+    <div class="nav-dot" style="background:var(--repo)"></div>
+    Wallet & Transfers
+  </button>
+  <button class="nav-btn" data-tab="payment">
+    <span class="nav-icon">💳</span>
+    <div class="nav-dot" style="background:var(--dto)"></div>
+    Payment Flow
+  </button>
+  <button class="nav-btn" data-tab="withdrawal">
+    <span class="nav-icon">🏦</span>
+    <div class="nav-dot" style="background:var(--domain)"></div>
+    Withdrawals
+  </button>
+
+  <div class="sidebar-label">Identity</div>
+  <button class="nav-btn" data-tab="otp">
+    <span class="nav-icon">🔧</span>
+    <div class="nav-dot" style="background:var(--utils)"></div>
+    OtpUtils
+  </button>
+  <button class="nav-btn" data-tab="twofa">
+    <span class="nav-icon">🔐</span>
+    <div class="nav-dot" style="background:var(--client)"></div>
+    2FA & Verification
+  </button>
+  <button class="nav-btn" data-tab="forgot">
+    <span class="nav-icon">📧</span>
+    <div class="nav-dot" style="background:var(--dto)"></div>
+    Forgot Password
+  </button>
+
+  <div class="sidebar-label">Data</div>
+  <button class="nav-btn" data-tab="database">
+    <span class="nav-icon">🗄️</span>
+    <div class="nav-dot" style="background:var(--db)"></div>
+    Database Tables
+  </button>
+</nav>
+
+<!-- ═══ CONTENT ═══ -->
+<main class="content">
+
+<!-- ══════════ ARCHITECTURE ══════════ -->
+<div class="tab-panel active" id="arch">
+  <div class="section-head">
+    <h2>📦 Full Package Architecture</h2>
+    <p>Every folder and class in the project, organized by layer. This is the structural skeleton the entire platform is built on.</p>
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--db)">
+        <div class="em">🚀</div>
+        <div class="name" style="color:var(--db)">Boot</div>
+        <div class="dir">root</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-config">ServercompApplication</span>
+        <span style="font-size:10.5px;color:var(--muted);margin-left:4px;">← @SpringBootApplication entry point</span>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--config)">
+        <div class="em">⚙️</div>
+        <div class="name" style="color:var(--config)">Config</div>
+        <div class="dir">config/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-config">AppConfig</span>
+        <span class="chip c-config">JwtConstant</span>
+        <span class="chip c-config">JwtProvider</span>
+        <span class="chip c-config">JwtTokenValidator</span>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--controller)">
+        <div class="em">🎮</div>
+        <div class="name" style="color:var(--controller)">Controller</div>
+        <div class="dir">controller/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-controller">AuthController</span>
+        <span class="chip c-controller">UserController</span>
+        <span class="chip c-controller">WalletController</span>
+        <span class="chip c-controller">TransactionController</span>
+        <span class="chip c-controller">OrderController</span>
+        <span class="chip c-controller">AssetController</span>
+        <span class="chip c-controller">WithdrawalController</span>
+        <span class="chip c-controller">WatchListController</span>
+        <span class="chip c-controller">CoinController</span>
+        <span class="chip c-controller">PaymentController</span>
+        <span class="chip c-controller">PaymentDetailsController</span>
+        <span class="chip c-controller">HomeController</span>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--service)">
+        <div class="em">⚙️</div>
+        <div class="name" style="color:var(--service)">Service</div>
+        <div class="dir">service/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-service">UserServiceImpl</span>
+        <span class="chip c-service">WalletServiceImpl</span>
+        <span class="chip c-service">TransactionServiceImpl</span>
+        <span class="chip c-service">OrderServiceImpl</span>
+        <span class="chip c-service">AssetServiceImpl</span>
+        <span class="chip c-service">WithdrawalServiceImpl</span>
+        <span class="chip c-service">WatchlistServiceImpl</span>
+        <span class="chip c-service">CoinServiceImpl</span>
+        <span class="chip c-service">PaymentServiceImpl</span>
+        <span class="chip c-service">PaymentDetailsServiceImpl</span>
+        <span class="chip c-service">ForgotPasswordServiceImpl</span>
+        <span class="chip c-service">VerificationCodeServiceImpl</span>
+        <span class="chip c-service">TwoFactorOTPServiceImpl</span>
+        <span class="chip c-service">EmailService</span>
+        <span class="chip c-service">CustomUserDetailsService</span>
+      </div>
+    </div>
+
+    <div class="arch-row utils-row">
+      <div class="arch-meta" style="border-left:3px solid var(--utils)">
+        <div class="em">🔧</div>
+        <div class="name" style="color:var(--utils)">Utils</div>
+        <div class="dir">utils/</div>
+      </div>
+      <div class="arch-files">
+        <div class="utils-sub">
+          <span class="chip c-utils">OtpUtils</span>
+          <span style="font-size:10px;color:var(--muted2);font-weight:600;">— stateless helper, called only from Service layer</span>
+        </div>
+        <div class="utils-sub">
+          <span class="utils-sub-label">✅ callers:</span>
+          <span class="chip c-service" style="font-size:9px">VerificationCodeServiceImpl</span>
+          <span class="chip c-service" style="font-size:9px">TwoFactorOTPServiceImpl</span>
+          <span class="chip c-service" style="font-size:9px">ForgotPasswordServiceImpl (optional)</span>
+        </div>
+        <div class="utils-sub">
+          <span class="utils-sub-label">❌ never from:</span>
+          <span class="chip c-controller c-strike" style="font-size:9px">controller/</span>
+          <span class="chip c-repo c-strike" style="font-size:9px">repository/</span>
+          <span class="chip c-config c-strike" style="font-size:9px">config/</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--repo)">
+        <div class="em">📦</div>
+        <div class="name" style="color:var(--repo)">Repository</div>
+        <div class="dir">repository/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-repo">UserRepository</span>
+        <span class="chip c-repo">WalletRepository</span>
+        <span class="chip c-repo">WalletTransactionRepository</span>
+        <span class="chip c-repo">AssetRepository</span>
+        <span class="chip c-repo">OrderRepository</span>
+        <span class="chip c-repo">OrderItemRepository</span>
+        <span class="chip c-repo">WithdrawalRepository</span>
+        <span class="chip c-repo">WatchlistRepository</span>
+        <span class="chip c-repo">CoinRepository</span>
+        <span class="chip c-repo">PaymentOrderRepository</span>
+        <span class="chip c-repo">PaymentDetailsRepository</span>
+        <span class="chip c-repo">VerificationCodeRepository</span>
+        <span class="chip c-repo">TwoFactorOTPRepository</span>
+        <span class="chip c-repo">ForgotPasswordRepository</span>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--model)">
+        <div class="em">🧩</div>
+        <div class="name" style="color:var(--model)">Model</div>
+        <div class="dir">model/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-model">User</span>
+        <span class="chip c-model">Wallet</span>
+        <span class="chip c-model">WalletTransaction</span>
+        <span class="chip c-model">Asset</span>
+        <span class="chip c-model">Order</span>
+        <span class="chip c-model">OrderItem</span>
+        <span class="chip c-model">Withdrawal</span>
+        <span class="chip c-model">Watchlist</span>
+        <span class="chip c-model">Coin</span>
+        <span class="chip c-model">PaymentOrder</span>
+        <span class="chip c-model">PaymentDetails</span>
+        <span class="chip c-model">VerificationCode</span>
+        <span class="chip c-model">TwoFactorAuth</span>
+        <span class="chip c-model">TwoFactorOTP</span>
+        <span class="chip c-model">ForgotPasswordToken</span>
+      </div>
+    </div>
+
+    <div class="arch-row">
+      <div class="arch-meta" style="border-left:3px solid var(--domain)">
+        <div class="em">🔤</div>
+        <div class="name" style="color:var(--domain)">Domain</div>
+        <div class="dir">domain/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-domain">USER_ROLE</span>
+        <span class="chip c-domain">OrderStatus</span>
+        <span class="chip c-domain">OrderType</span>
+        <span class="chip c-domain">PaymentMethod</span>
+        <span class="chip c-domain">PaymentOrderStatus</span>
+        <span class="chip c-domain">VerificationType</span>
+        <span class="chip c-domain">WalletTransactionType</span>
+        <span class="chip c-domain">WithdrawalStatus</span>
+      </div>
+    </div>
+
+    <div class="arch-row" style="border-bottom:none">
+      <div class="arch-meta" style="border-left:3px solid var(--dto)">
+        <div class="em">📬</div>
+        <div class="name" style="color:var(--dto)">DTOs</div>
+        <div class="dir">request/ response/</div>
+      </div>
+      <div class="arch-files">
+        <span class="chip c-dto">CreateOrderRequest</span>
+        <span class="chip c-dto">ForgotPasswordTokenRequest</span>
+        <span class="chip c-dto">ResetPasswordRequest</span>
+        <span class="chip c-dto">ApiResponse</span>
+        <span class="chip c-dto">AuthResponse</span>
+        <span class="chip c-dto">PaymentResponse</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--controller)">🎮 Controller = Front Desk</h4><p>12 controllers. Each maps HTTP endpoints to a Service method. No business logic — just read input DTO, call Service, return output DTO.</p></div>
+    <div class="info-card"><h4 style="color:var(--service)">⚙️ Service = The Brain</h4><p>15 services. All rules, validations, multi-step operations, and external API calls live here. Uses <code style="font-family:JetBrains Mono,monospace;font-size:10px;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px">@Transactional</code> for atomic DB writes.</p></div>
+    <div class="info-card"><h4 style="color:var(--utils)">🔧 Utils = Stateless Helpers</h4><p>OtpUtils is pure logic — no DB, no HTTP. Called only from Service. Easily unit-tested. Methods: generateOtp(), verifyOtp(), isExpired().</p></div>
+    <div class="info-card"><h4 style="color:var(--repo)">📦 Repository = DB Clerk</h4><p>14 JPA repositories. Spring generates all SQL from method names like findByEmail(), findByUserId(). Returns model/entity objects.</p></div>
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 Domain = System Vocabulary</h4><p>8 enums. Type-safe constants used across layers. Instead of "pending" string you get WithdrawalStatus.PENDING — refactor-proof.</p></div>
+    <div class="info-card"><h4 style="color:var(--dto)">📬 DTOs = API Contracts</h4><p>request/ and response/ DTOs define what the client sends and receives. Never expose raw DB entities over the API.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ BOOT ══════════ -->
+<div class="tab-panel" id="boot">
+  <div class="section-head">
+    <h2>🚀 App Boot Flow</h2>
+    <p>What happens from the moment you run the application to the moment it's ready to serve requests.</p>
+  </div>
+  <div class="flows-grid" style="grid-template-columns:1fr">
+    <div class="flow-card" style="--glow:rgba(239,68,68,.06)">
+      <h3>Spring Boot Startup Sequence</h3>
+      <div class="vchain">
+        <div class="vnode n-db"><div class="vnode-side"><div class="vnode-circle">🏁</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">ServercompApplication.main()</span><div class="vnode-chips"><span class="chip c-config">ServercompApplication</span></div><div class="vnode-desc">The entry point. @SpringBootApplication triggers the entire bootstrap process.</div></div></div>
+        <div class="vnode n-config"><div class="vnode-side"><div class="vnode-circle">📖</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Reads application.properties</span><div class="vnode-desc">DB URL, credentials, JWT secret, mail settings, API keys — all loaded from here before anything starts.</div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🔍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Component Scan — com.eztrad.servercomp.*</span><div class="vnode-desc">Spring discovers every @RestController, @Service, @Repository, @Component in the package tree.</div></div></div>
+        <div class="vnode n-config"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">config/ loads first</span><div class="vnode-chips"><span class="chip c-config">AppConfig</span><span class="chip c-config">JwtProvider</span><span class="chip c-config">JwtTokenValidator</span><span class="chip c-config">JwtConstant</span></div><div class="vnode-desc">Security filter chain, CORS rules, and JWT beans are registered. Now every incoming request will be intercepted.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">🔌</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">repository/ — DB Connection established</span><div class="vnode-desc">Spring Data JPA connects to MySQL, creates/validates tables (based on ddl-auto setting), and registers all 14 repo beans.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">service/ — All service beans wired up</span><div class="vnode-desc">15 services instantiated. Dependencies injected (e.g. OrderServiceImpl gets WalletServiceImpl and CoinServiceImpl auto-injected).</div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🗺️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">controller/ — HTTP routes registered</span><div class="vnode-desc">12 controllers expose endpoints: /auth/**, /orders/**, /wallet/**, /coins/**, etc. All mapped and ready.</div></div></div>
+        <div class="vnode n-success"><div class="vnode-side"><div class="vnode-circle">✅</div></div><div class="vnode-body"><span class="vnode-label">Application Ready — Tomcat server listening</span><div class="vnode-desc">All endpoints are live. Security filter is active. Every incoming request will be validated before reaching controllers.</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--config)">⚙️ Why config/ loads first?</h4><p>Security configuration must be set up before any HTTP request can reach a controller. The JWT filter chain is established at boot — not per-request.</p></div>
+    <div class="info-card"><h4 style="color:var(--repo)">🔌 JPA at boot</h4><p>Spring Data JPA auto-generates the SQL for all 14 repositories. It also validates the DB schema matches your model classes. If there's a mismatch — it fails at boot, not at runtime.</p></div>
+    <div class="info-card"><h4 style="color:var(--service)">💉 Dependency Injection</h4><p>Spring's IoC container wires everything. OrderServiceImpl needs WalletServiceImpl? Spring finds it and injects it. You never call new ServiceImpl() manually.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ JWT ══════════ -->
+<div class="tab-panel" id="jwt">
+  <div class="section-head">
+    <h2>🔑 JWT & Authentication</h2>
+    <p>How users prove identity — from first login to every subsequent protected request.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(59,130,246,.06)">
+      <h3>📝 Register / Login → JWT Issued</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Client sends credentials</span><div class="vnode-chips"><span class="chip c-dto">POST /auth/login or /register</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">AuthController</span><div class="vnode-desc">Reads input, delegates to UserService. No auth logic here.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">UserServiceImpl + CustomUserDetailsService</span><div class="vnode-chips"><span class="chip c-service">UserServiceImpl</span><span class="chip c-service">CustomUserDetailsService</span></div><div class="vnode-desc">Loads user from DB. BCrypt compares password. Spring Security validates.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">UserRepository → User</span><div class="vnode-chips"><span class="chip c-repo">UserRepository</span><span class="chip c-model">User</span></div></div></div>
+        <div class="vnode n-config"><div class="vnode-side"><div class="vnode-circle">🔏</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">JwtProvider.generateToken()</span><div class="vnode-chips"><span class="chip c-config">JwtProvider</span><span class="chip c-config">JwtConstant</span></div><div class="vnode-desc">Signs JWT with secret key. Embeds userId, role, expiry in payload.</div></div></div>
+        <div class="vnode n-dto"><div class="vnode-side"><div class="vnode-circle">📤</div></div><div class="vnode-body"><span class="vnode-label">AuthResponse → Client</span><div class="vnode-chips"><span class="chip c-dto">AuthResponse { jwt, status }</span></div><div class="vnode-desc">Client stores this token and sends it with every future request.</div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(249,115,22,.06)">
+      <h3>🛡️ Every Protected Request</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Client sends any request</span><div class="vnode-chips"><span class="chip c-dto">Authorization: Bearer &lt;JWT&gt;</span></div></div></div>
+        <div class="vnode n-config"><div class="vnode-side"><div class="vnode-circle">🔍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">JwtTokenValidator intercepts first</span><div class="vnode-chips"><span class="chip c-config">JwtTokenValidator</span></div><div class="vnode-desc">OncePerRequestFilter — runs before EVERY controller. Reads Authorization header.</div></div></div>
+        <div class="vnode n-config"><div class="vnode-side"><div class="vnode-circle">✅</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">JwtProvider.validateToken()</span><div class="vnode-chips"><span class="chip c-config">JwtProvider</span><span class="chip c-config">JwtConstant</span></div><div class="vnode-desc">Verifies signature, checks expiry, extracts userId + role from payload.</div></div></div>
+      </div>
+      <div class="branches">
+        <div class="branch branch-ok"><strong>✅ Valid Token</strong><span>Identity set in SecurityContext → request passes through to the correct Controller</span></div>
+        <div class="branch branch-fail"><strong>❌ Invalid / Expired</strong><span>401 Unauthorized returned immediately. No controller code runs at all.</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--config)">🔐 JwtConstant</h4><p>Holds the secret signing key and expiry duration. Centralized — rotate the key here and it affects the entire app. Never hardcode in service files.</p></div>
+    <div class="info-card"><h4 style="color:var(--config)">🏭 JwtProvider</h4><p>Two jobs: <strong>generate</strong> — after login, signs a new JWT. <strong>validate</strong> — on every protected request, parses and verifies the token.</p></div>
+    <div class="info-card"><h4 style="color:var(--config)">🚨 JwtTokenValidator</h4><p>The security gate. Runs on every single HTTP request before any controller. If the token is missing or bad — blocked here, 401 returned.</p></div>
+    <div class="info-card"><h4 style="color:var(--service)">👤 CustomUserDetailsService</h4><p>Required by Spring Security. Loads a User entity from UserRepository by email so Spring can verify passwords during the login process.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ ROLES ══════════ -->
+<div class="tab-panel" id="roles">
+  <div class="section-head">
+    <h2>🛡️ Roles & Endpoint Access</h2>
+    <p>USER_ROLE enum + AppConfig security config determine who can access which endpoints.</p>
+  </div>
+  <div class="access-grid">
+    <div class="access-col" style="background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.2)">
+      <h4 style="color:#34d399">✅ ROLE_CUSTOMER</h4>
+      <span class="ep">/orders/** — buy & sell</span>
+      <span class="ep">/assets — portfolio</span>
+      <span class="ep">/wallet/** — balance & transfer</span>
+      <span class="ep">/transactions — history</span>
+      <span class="ep">/watchlist/** — favorites</span>
+      <span class="ep">/coins/** — market data</span>
+      <span class="ep">/withdrawals/request</span>
+      <span class="ep">/payment/**</span>
+    </div>
+    <div class="access-col" style="background:rgba(168,85,247,.05);border-color:rgba(168,85,247,.2)">
+      <h4 style="color:#c084fc">🔑 ROLE_ADMIN</h4>
+      <span class="ep">/withdrawals/approve/{id}</span>
+      <span class="ep">/withdrawals/reject/{id}</span>
+      <span class="ep">/users/all — list all users</span>
+      <span class="ep">/users/{id} — delete user</span>
+      <span class="ep">← monitors suspicious activity</span>
+    </div>
+    <div class="access-col" style="background:rgba(34,211,238,.05);border-color:rgba(34,211,238,.2)">
+      <h4 style="color:#67e8f9">🌐 Public (no token)</h4>
+      <span class="ep">POST /auth/login</span>
+      <span class="ep">POST /auth/register</span>
+      <span class="ep">POST /auth/forgot-password</span>
+      <span class="ep">GET / — HomeController health</span>
+    </div>
+  </div>
+  <div class="flows-grid" style="grid-template-columns:1fr">
+    <div class="flow-card" style="--glow:rgba(168,85,247,.05)">
+      <h3>👤 Role Assignment on Register</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /auth/register</span></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">UserServiceImpl assigns default role</span><div class="vnode-chips"><span class="chip c-service">UserServiceImpl</span><span class="chip c-domain">USER_ROLE.ROLE_CUSTOMER</span></div><div class="vnode-desc">Every new user gets ROLE_CUSTOMER. Admin role is set manually or via a separate admin-only endpoint — never auto-assigned.</div></div></div>
+        <div class="vnode n-model"><div class="vnode-side"><div class="vnode-circle">🧩</div></div><div class="vnode-body"><span class="vnode-label">User saved with role in DB</span><div class="vnode-chips"><span class="chip c-model">User</span><span class="chip c-domain">USER_ROLE</span><span class="chip c-repo">UserRepository</span></div><div class="vnode-desc">Role is stored on the User entity. JwtProvider embeds it in the JWT at login. JwtTokenValidator reads it on every request.</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--config)">⚙️ AppConfig</h4><p>Defines the Spring Security filter chain. Which URL patterns are public, which need ROLE_CUSTOMER, which need ROLE_ADMIN. Also sets CORS rules for the frontend origin.</p></div>
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 USER_ROLE enum</h4><p>Two values: ROLE_CUSTOMER and ROLE_ADMIN. Stored in the User entity. Embedded in the JWT. Read by Spring Security on every request to authorize access.</p></div>
+    <div class="info-card"><h4 style="color:var(--service)">🏠 HomeController</h4><p>GET / returns ApiResponse "server is running". Used for health checks and deployment verification. Public endpoint — no token required.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ ORDERS ══════════ -->
+<div class="tab-panel" id="orders">
+  <div class="section-head">
+    <h2>📈 Orders & Portfolio</h2>
+    <p>A single buy or sell order atomically touches 5 different database writes. All succeed or all rollback.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(16,185,129,.06)">
+      <h3>🛒 Buy Order — Example: Buy BTC for $500</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Client</span><div class="vnode-chips"><span class="chip c-dto">POST /orders — CreateOrderRequest { coinId, type:BUY, amount:500 }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OrderController</span><div class="vnode-chips"><span class="chip c-controller">OrderController</span><span class="chip c-dto">CreateOrderRequest</span></div><div class="vnode-desc">Reads JWT identity, passes request to OrderService. No logic here.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OrderServiceImpl — validates OrderType</span><div class="vnode-chips"><span class="chip c-service">OrderServiceImpl</span><span class="chip c-domain">OrderType.BUY</span><span class="chip c-domain">OrderStatus.PENDING</span></div></div></div>
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">🌍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">CoinServiceImpl → CoinGecko API</span><div class="vnode-chips"><span class="chip c-service">CoinServiceImpl</span><span class="chip c-external">CoinGecko</span></div><div class="vnode-desc">Fetches LIVE BTC price at this exact moment. qty = $500 ÷ currentPrice</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">💳</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WalletServiceImpl — check balance ≥ $500</span><div class="vnode-chips"><span class="chip c-service">WalletServiceImpl</span><span class="chip c-model">Wallet</span></div><div class="vnode-desc">If balance insufficient → throws exception. Nothing is written to DB.</div></div></div>
+      </div>
+      <div class="atomic">
+        <div class="atomic-title">⚛️ @Transactional — 5 writes, all or nothing</div>
+        <div class="atomic-steps">
+          <div class="atomic-step">1️⃣ Debit $500 → WalletRepository</div>
+          <div class="atomic-step">2️⃣ Credit BTC qty → AssetRepository</div>
+          <div class="atomic-step">3️⃣ Create Order → OrderRepository</div>
+          <div class="atomic-step">4️⃣ Create OrderItem → OrderItemRepository</div>
+          <div class="atomic-step">5️⃣ Log DEBIT → WalletTransactionRepository</div>
+        </div>
+      </div>
+      <div class="vchain">
+        <div class="vnode n-dto"><div class="vnode-side"><div class="vnode-circle">📤</div></div><div class="vnode-body"><span class="vnode-label">ApiResponse → Client</span><div class="vnode-chips"><span class="chip c-dto">order confirmed, new balance, BTC qty</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(239,68,68,.05)">
+      <h3>📉 Sell Order — Mirror of Buy</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /orders — SellOrderRequest</span><div class="vnode-chips"><span class="chip c-dto">{ coinId, type:SELL, qty }</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OrderServiceImpl + live price + asset check</span><div class="vnode-chips"><span class="chip c-domain">OrderType.SELL</span><span class="chip c-service">AssetServiceImpl</span></div><div class="vnode-desc">Does user hold enough BTC? fiat = qty × currentPrice calculated.</div></div></div>
+      </div>
+      <div class="atomic">
+        <div class="atomic-title">⚛️ Atomic — Reverse of Buy</div>
+        <div class="atomic-steps">
+          <div class="atomic-step">1️⃣ Debit BTC qty → AssetRepository</div>
+          <div class="atomic-step">2️⃣ Credit fiat → WalletRepository</div>
+          <div class="atomic-step">3️⃣ Create Order record</div>
+          <div class="atomic-step">4️⃣ Create OrderItem</div>
+          <div class="atomic-step">5️⃣ Log CREDIT → WalletTransaction</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(59,130,246,.05)">
+      <h3>📊 Portfolio — GET /assets</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">GET /assets</span></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">AssetController</span><div class="vnode-chips"><span class="chip c-controller">AssetController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">AssetServiceImpl</span><div class="vnode-chips"><span class="chip c-service">AssetServiceImpl</span></div><div class="vnode-desc">Fetches all holdings. Optionally joins with CoinGecko for live PnL (profit/loss) calculation.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div></div><div class="vnode-body"><span class="vnode-label">AssetRepository → Asset</span><div class="vnode-chips"><span class="chip c-repo">AssetRepository</span><span class="chip c-model">Asset { userId, coinId, qty, avgBuyPrice }</span></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--model)">📦 Order vs OrderItem</h4><p>Order = the trade event (who, what action, when, total). OrderItem = the coin detail (which coin, unit price, quantity). One Order contains one OrderItem.</p></div>
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 Enums used</h4><ul><li>OrderType — BUY or SELL</li><li>OrderStatus — PENDING, COMPLETED</li><li>WalletTransactionType — DEBIT / CREDIT</li></ul></div>
+    <div class="info-card"><h4 style="color:var(--external)">🌍 Live price at trade time</h4><p>Your backend never stores static prices. CoinGecko is called at the exact moment of the trade. The price embedded in the Order is the actual execution price.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ COINS ══════════ -->
+<div class="tab-panel" id="coins">
+  <div class="section-head">
+    <h2>🪙 Coins & Watchlist</h2>
+    <p>Live market data from CoinGecko, optional local caching, and user favorites tracking.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(139,92,246,.06)">
+      <h3>🔍 Coin Search / Market Data</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">GET /coins/search?q=btc</span></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">CoinController</span><div class="vnode-chips"><span class="chip c-controller">CoinController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">CoinServiceImpl — decides: API or DB cache?</span><div class="vnode-chips"><span class="chip c-service">CoinServiceImpl</span></div><div class="vnode-desc">Either calls CoinGecko directly (fresh data) or returns cached Coin from DB (performance). Strategy is configurable.</div></div></div>
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">🌍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">CoinGecko API</span><div class="vnode-chips"><span class="chip c-external">CoinGecko REST API</span></div><div class="vnode-desc">Returns price, market cap, 24h change, volume for matching coins.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div></div><div class="vnode-body"><span class="vnode-label">CoinRepository (optional cache)</span><div class="vnode-chips"><span class="chip c-repo">CoinRepository</span><span class="chip c-model">Coin</span></div><div class="vnode-desc">If caching enabled, coin data stored in DB. Reduces API calls, improves response time.</div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(250,204,21,.04)">
+      <h3>⭐ Watchlist — Add & Get</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /watchlist/add</span><div class="vnode-chips"><span class="chip c-dto">{ coinId }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WatchListController</span><div class="vnode-chips"><span class="chip c-controller">WatchListController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WatchlistServiceImpl</span><div class="vnode-chips"><span class="chip c-service">WatchlistServiceImpl</span></div><div class="vnode-desc">Adds coin to user's watchlist. On GET, merges stored watchlist with live CoinGecko prices.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div></div><div class="vnode-body"><span class="vnode-label">WatchlistRepository → Watchlist</span><div class="vnode-chips"><span class="chip c-repo">WatchlistRepository</span><span class="chip c-model">Watchlist</span></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--external)">🌐 CoinGecko — Free API</h4><p>Public crypto market data API. Your backend calls it server-side (not client-side) so you can cache results, add rate limiting, and avoid exposing API keys.</p></div>
+    <div class="info-card"><h4 style="color:var(--model)">💾 Coin model — optional cache</h4><p>Coin entity in the DB stores last-known price data. CoinServiceImpl decides whether to use DB cache or make fresh API call based on data age.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ WALLET ══════════ -->
+<div class="tab-panel" id="wallet">
+  <div class="section-head">
+    <h2>💰 Wallet & Transfers</h2>
+    <p>Every money movement creates an auditable WalletTransaction record. Transfers are fully atomic.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(245,158,11,.06)">
+      <h3>🔄 Wallet-to-Wallet Transfer</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /wallet/transfer</span><div class="vnode-chips"><span class="chip c-dto">{ receiverId, amount }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WalletController</span><div class="vnode-chips"><span class="chip c-controller">WalletController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WalletServiceImpl — validates</span><div class="vnode-chips"><span class="chip c-service">WalletServiceImpl</span></div><div class="vnode-desc">Sender balance ≥ amount? Receiver exists? Transfer limits OK? Any failure → exception, no DB writes.</div></div></div>
+      </div>
+      <div class="atomic">
+        <div class="atomic-title">⚛️ Atomic — 4 writes or 0</div>
+        <div class="atomic-steps">
+          <div class="atomic-step">1️⃣ Debit sender Wallet</div>
+          <div class="atomic-step">2️⃣ Credit receiver Wallet</div>
+          <div class="atomic-step">3️⃣ WalletTransaction DEBIT (sender)</div>
+          <div class="atomic-step">4️⃣ WalletTransaction CREDIT (receiver)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(6,182,212,.05)">
+      <h3>📜 Transaction History</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">GET /transactions</span></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">TransactionController</span><div class="vnode-chips"><span class="chip c-controller">TransactionController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">TransactionServiceImpl</span><div class="vnode-chips"><span class="chip c-service">TransactionServiceImpl</span><span class="chip c-repo">WalletTransactionRepository</span><span class="chip c-model">WalletTransaction</span></div><div class="vnode-desc">Returns every DEBIT/CREDIT event for the user. This is the full audit trail — deposits, withdrawals, transfers, trades.</div></div></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">WalletTransactionType enum values</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <span class="chip c-domain">DEPOSIT</span>
+          <span class="chip c-domain">WITHDRAWAL</span>
+          <span class="chip c-domain">TRANSFER</span>
+          <span class="chip c-domain">BUY_ORDER</span>
+          <span class="chip c-domain">SELL_ORDER</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--service)">⚛️ Why @Transactional?</h4><p>If any step fails (DB crash, network error mid-operation), Spring rolls back ALL writes in that transaction. Money can never vanish from one wallet without appearing in another.</p></div>
+    <div class="info-card"><h4 style="color:var(--model)">📋 WalletTransaction row</h4><p>Every movement creates a row: { userId, type, amount, description, timestamp }. The history view reads these rows. Real exchanges must keep this forever for compliance.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ PAYMENT ══════════ -->
+<div class="tab-panel" id="payment">
+  <div class="section-head">
+    <h2>💳 Payment Flow</h2>
+    <p>Two-step process: create a payment session → gateway webhooks back when paid → wallet is credited.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(236,72,153,.06)">
+      <h3>💳 Step 1 — Create Payment Session</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">User clicks "Add Balance"</span><div class="vnode-chips"><span class="chip c-dto">POST /payment/create { amount, method }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentController</span><div class="vnode-chips"><span class="chip c-controller">PaymentController</span><span class="chip c-domain">PaymentMethod</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentServiceImpl — create PaymentOrder</span><div class="vnode-chips"><span class="chip c-service">PaymentServiceImpl</span><span class="chip c-model">PaymentOrder</span><span class="chip c-domain">PaymentOrderStatus.INITIATED</span></div><div class="vnode-desc">Saves INITIATED record to DB, then calls Stripe/Razorpay SDK to create session.</div></div></div>
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">🌍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Stripe / Razorpay API</span><div class="vnode-chips"><span class="chip c-external">Payment Gateway</span></div><div class="vnode-desc">Returns payment URL. User is redirected to complete payment on gateway's hosted page.</div></div></div>
+        <div class="vnode n-dto"><div class="vnode-side"><div class="vnode-circle">📤</div></div><div class="vnode-body"><span class="vnode-label">PaymentResponse → Client</span><div class="vnode-chips"><span class="chip c-dto">PaymentResponse { paymentUrl, orderId }</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(16,185,129,.05)">
+      <h3>📡 Step 2 — Webhook → Wallet Credited</h3>
+      <div class="vchain">
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">🌍</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Stripe fires webhook to your server</span><div class="vnode-desc">Server-to-server call. Gateway tells your backend "payment succeeded for orderId X".</div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentController — /payment/webhook</span><div class="vnode-desc">Validates webhook signature — ensures it's from real Stripe, not an attacker.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentServiceImpl — process success</span><div class="vnode-chips"><span class="chip c-domain">PaymentOrderStatus.SUCCESS</span></div></div></div>
+      </div>
+      <div class="atomic">
+        <div class="atomic-title">⚛️ Atomic wallet credit</div>
+        <div class="atomic-steps">
+          <div class="atomic-step">1️⃣ PaymentOrder → SUCCESS</div>
+          <div class="atomic-step">2️⃣ Credit Wallet + amount</div>
+          <div class="atomic-step">3️⃣ WalletTransaction DEPOSIT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(139,92,246,.05)">
+      <h3>🗂️ Payment Details Profile</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /payment/details — save preference</span><div class="vnode-desc">User saves preferred payment method, UPI ID, or bank info for future use.</div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentDetailsController</span><div class="vnode-chips"><span class="chip c-controller">PaymentDetailsController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">PaymentDetailsServiceImpl → DB</span><div class="vnode-chips"><span class="chip c-service">PaymentDetailsServiceImpl</span><span class="chip c-model">PaymentDetails</span><span class="chip c-repo">PaymentDetailsRepository</span></div><div class="vnode-desc">Stores user's saved payment profile. Pre-fills forms on next deposit or withdrawal request.</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--dto)">💡 PaymentOrder vs PaymentDetails</h4><p>PaymentOrder = one specific transaction attempt (unique per payment, has a status lifecycle). PaymentDetails = user's saved profile (reused across many payments).</p></div>
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 PaymentOrderStatus</h4><ul><li>INITIATED — created, awaiting payment</li><li>SUCCESS — webhook confirmed</li><li>FAILED — declined or expired</li></ul></div>
+    <div class="info-card"><h4 style="color:var(--config)">🔑 Webhook Security</h4><p>The webhook endpoint validates Stripe's signature header before processing. Without this check, any attacker could fake a "payment success" and get free credit.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ WITHDRAWAL ══════════ -->
+<div class="tab-panel" id="withdrawal">
+  <div class="section-head">
+    <h2>🏦 Withdrawals</h2>
+    <p>Withdrawals are not instant. They follow a PENDING → APPROVED → COMPLETED lifecycle with admin oversight.</p>
+  </div>
+  <div class="flows-grid" style="grid-template-columns:1fr">
+    <div class="flow-card" style="--glow:rgba(6,182,212,.05)">
+      <h3>🏦 Full Withdrawal Lifecycle</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /withdrawals/request</span><div class="vnode-chips"><span class="chip c-dto">{ bankAccount, amount }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WithdrawalController</span><div class="vnode-chips"><span class="chip c-controller">WithdrawalController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">WithdrawalServiceImpl — validate</span><div class="vnode-chips"><span class="chip c-service">WithdrawalServiceImpl</span></div><div class="vnode-desc">Check balance ≥ amount. Check KYC if required. Check withdrawal limits.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Create Withdrawal(PENDING) + reserve funds</span><div class="vnode-chips"><span class="chip c-repo">WithdrawalRepository</span><span class="chip c-model">Withdrawal</span><span class="chip c-domain">WithdrawalStatus.PENDING</span><span class="chip c-repo">WalletTransactionRepository</span></div><div class="vnode-desc">Withdrawal record saved as PENDING. Funds reserved (debited from wallet but not paid out yet).</div></div></div>
+        <div class="vnode n-service" style="margin-top:8px"><div class="vnode-side"><div class="vnode-circle">👤</div><div class="vnode-line"></div></div><div class="vnode-body" style="background:rgba(168,85,247,0.05);border-color:rgba(168,85,247,0.15)"><span class="vnode-label">Admin reviews the request</span><div class="vnode-chips"><span class="chip c-domain">WithdrawalStatus.APPROVED or REJECTED</span></div><div class="vnode-desc">PUT /withdrawals/approve/{id} — ROLE_ADMIN only. Real platforms require manual review for large amounts.</div></div></div>
+        <div class="vnode n-success"><div class="vnode-side"><div class="vnode-circle">✅</div></div><div class="vnode-body"><span class="vnode-label">If APPROVED → payout initiated → COMPLETED</span><div class="vnode-chips"><span class="chip c-domain">WithdrawalStatus.COMPLETED</span></div><div class="vnode-desc">Bank transfer happens. Status updated. If REJECTED → funds returned to wallet.</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 WithdrawalStatus</h4><ul><li>PENDING — just requested</li><li>APPROVED — admin cleared it</li><li>REJECTED — admin denied it</li><li>COMPLETED — bank transfer done</li></ul></div>
+    <div class="info-card"><h4 style="color:var(--controller)">🛡️ Admin-only endpoint</h4><p>ROLE_ADMIN is required to hit /withdrawals/approve or /withdrawals/reject. AppConfig enforces this. A regular customer token cannot reach these endpoints.</p></div>
+    <div class="info-card"><h4 style="color:var(--repo)">📋 Audit trail</h4><p>Every state transition creates a WalletTransaction record. If rejected, a CREDIT reversal is created. The full history is always queryable.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ OTP UTILS ══════════ -->
+<div class="tab-panel" id="otp">
+  <div class="section-head">
+    <h2>🔧 OtpUtils — The Utility Layer</h2>
+    <p>A stateless helper in <code style="font-family:JetBrains Mono,monospace;font-size:11px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px">utils/</code> that is called exclusively inside Service classes. Keeps OTP logic reusable and testable.</p>
+  </div>
+
+  <div class="rule-grid">
+    <div class="rule-card rule-ok">
+      <div class="r-title">✅ OtpUtils IS called from</div>
+      <div class="r-chips">
+        <span class="chip c-service" style="font-size:9.5px">VerificationCodeServiceImpl</span>
+        <span class="chip c-service" style="font-size:9.5px">TwoFactorOTPServiceImpl</span>
+        <span class="chip c-service" style="font-size:9.5px">ForgotPasswordServiceImpl (optional)</span>
+      </div>
+    </div>
+    <div class="rule-card rule-no">
+      <div class="r-title">❌ OtpUtils NOT called from</div>
+      <div class="r-chips">
+        <span class="chip c-controller c-strike" style="font-size:9.5px">controller/ — stays thin</span>
+        <span class="chip c-repo c-strike" style="font-size:9.5px">repository/ — no logic</span>
+        <span class="chip c-config c-strike" style="font-size:9.5px">config/ — not its job</span>
+      </div>
+    </div>
+    <div class="rule-card rule-util">
+      <div class="r-title">📦 OtpUtils Methods</div>
+      <div class="r-chips">
+        <span class="chip c-utils" style="font-size:9.5px">generateOtp()</span>
+        <span class="chip c-utils" style="font-size:9.5px">verifyOtp(input, stored)</span>
+        <span class="chip c-utils" style="font-size:9.5px">isExpired(expiresAt)</span>
+        <span class="chip c-utils" style="font-size:9.5px">validateFormat(otp)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(250,204,21,.05)">
+      <h3>➡️ Flow A — Generate OTP</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Client triggers OTP send</span><div class="vnode-desc">"Verify email", "Enable 2FA", "Send reset code"</div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Controller — delegates immediately</span><div class="vnode-desc" style="color:#f87171;font-size:10.5px">🚫 No OTP logic here. Controller stays thin.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Service — orchestrates generate</span><div class="vnode-chips"><span class="chip c-service" style="font-size:9px">VerificationCodeServiceImpl</span></div></div></div>
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.generateOtp()</span><div class="vnode-chips"><span class="chip c-utils">utils/OtpUtils</span></div><div class="vnode-desc">Returns a secure random 6-digit string. Service receives this value and controls what to do with it.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Repository.save(OTP record)</span><div class="vnode-chips"><span class="chip c-repo">VerificationCodeRepository</span><span class="chip c-model">VerificationCode { otpCode, expiresAt, used:false }</span></div></div></div>
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">📨</div></div><div class="vnode-body"><span class="vnode-label">EmailService.sendOtp(otp) → inbox</span><div class="vnode-chips"><span class="chip c-service">EmailService</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(250,204,21,.05)">
+      <h3>⬅️ Flow B — Verify OTP</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">User submits 6-digit code</span></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Controller passes input to Service</span><div class="vnode-desc" style="color:#f87171;font-size:10.5px">🚫 No comparison logic here.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Service orchestrates verify</span><div class="vnode-chips"><span class="chip c-service" style="font-size:9px">VerificationCodeServiceImpl</span></div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Repository.findLatestOtp(user)</span><div class="vnode-chips"><span class="chip c-repo">VerificationCodeRepository</span><span class="chip c-model">VerificationCode</span></div></div></div>
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.verifyOtp() + isExpired()</span><div class="vnode-chips"><span class="chip c-utils">utils/OtpUtils</span></div><div class="vnode-desc">Compares user input vs stored code. Checks expiry. Returns true or false.</div></div></div>
+      </div>
+      <div class="branches">
+        <div class="branch branch-ok"><strong>✅ Valid + not expired</strong><span>Mark OTP used=true, delete row. Sensitive action proceeds.</span></div>
+        <div class="branch branch-fail"><strong>❌ Invalid or expired</strong><span>Service throws exception. 400/401 returned. No action.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-map">
+    <div><span class="cm-controller">controller/</span>  <span class="cm-muted">← thin, no OTP logic</span></div>
+    <div style="padding-left:20px"><span class="cm-arrow">↓</span></div>
+    <div><span class="cm-service">service/</span></div>
+    <div style="padding-left:40px"><span class="cm-service">VerificationCodeServiceImpl</span>  <span class="cm-muted">──calls──►</span>  <span class="cm-utils">utils/OtpUtils</span></div>
+    <div style="padding-left:40px"><span class="cm-service">TwoFactorOTPServiceImpl</span>      <span class="cm-muted">──calls──►</span>  <span class="cm-utils">utils/OtpUtils</span></div>
+    <div style="padding-left:40px"><span class="cm-service">ForgotPasswordServiceImpl</span>    <span class="cm-muted">──calls──►</span>  <span class="cm-utils">utils/OtpUtils</span>  <span class="cm-muted">(optional)</span></div>
+    <div style="padding-left:20px"><span class="cm-arrow">↓</span></div>
+    <div><span class="cm-repo">repository/</span>  <span class="cm-muted">← no OtpUtils here</span></div>
+    <div style="padding-left:20px"><span class="cm-arrow">↓</span></div>
+    <div><span class="cm-db">MySQL</span>  <span class="cm-muted">← VerificationCode { otpCode, expiresAt, used }</span></div>
+  </div>
+
+  <div class="info-grid" style="margin-top:16px">
+    <div class="info-card" style="border-color:rgba(250,204,21,.2)"><h4 style="color:var(--utils)">🔒 Why not Controller?</h4><p>Controllers are the front desk — they read input and return output. Mixing OTP logic there couples HTTP concerns with business rules. Hard to test.</p></div>
+    <div class="info-card" style="border-color:rgba(250,204,21,.2)"><h4 style="color:var(--utils)">🗄️ Why not Repository?</h4><p>Repositories do pure DB CRUD. Comparing OTP codes is a business rule, not a DB operation. Putting logic there violates separation of concerns.</p></div>
+    <div class="info-card" style="border-color:rgba(250,204,21,.2)"><h4 style="color:var(--utils)">✅ Why utils/?</h4><p>OtpUtils is stateless — no DB, no HTTP, no Spring beans. Pure Java logic that any service can reuse. Unit-testable with zero Spring setup.</p></div>
+    <div class="info-card"><h4 style="color:var(--model)">🧩 Required model fields</h4><p>VerificationCode and TwoFactorOTP must have: <code style="font-family:JetBrains Mono,monospace;font-size:10px;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px">otpCode</code>, <code style="font-family:JetBrains Mono,monospace;font-size:10px;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px">expiresAt</code>, <code style="font-family:JetBrains Mono,monospace;font-size:10px;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px">used</code>. If they already exist — no model changes needed.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ 2FA ══════════ -->
+<div class="tab-panel" id="twofa">
+  <div class="section-head">
+    <h2>🔐 2FA & Verification Codes</h2>
+    <p>Two-factor authentication and general OTP verification — both use OtpUtils internally.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(34,211,238,.05)">
+      <h3>🔢 OTP Verification — Full Flow</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">User requests OTP for sensitive action</span><div class="vnode-desc">Change password, large transfer, enable 2FA</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">VerificationCodeServiceImpl</span><div class="vnode-chips"><span class="chip c-service">VerificationCodeServiceImpl</span><span class="chip c-domain">VerificationType</span></div></div></div>
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.generateOtp() called here</span><div class="vnode-chips"><span class="chip c-utils">OtpUtils</span></div><div class="vnode-desc">Service calls OtpUtils for generation. Never generates OTP inline in service code.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Save + Email</span><div class="vnode-chips"><span class="chip c-repo">VerificationCodeRepository</span><span class="chip c-service">EmailService</span></div></div></div>
+      </div>
+      <div class="flow-divider">User submits OTP</div>
+      <div class="vchain">
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.verifyOtp() + isExpired()</span><div class="vnode-chips"><span class="chip c-utils">OtpUtils</span></div></div></div>
+        <div class="vnode n-success"><div class="vnode-side"><div class="vnode-circle">✅</div></div><div class="vnode-body"><span class="vnode-label">Mark used → action unlocked</span></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(34,211,238,.05)">
+      <h3>🔒 Two-Factor Auth Login</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">User logs in (2FA enabled)</span><div class="vnode-desc">Standard login succeeds but JWT not issued yet — 2FA step required first.</div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">TwoFactorOTPServiceImpl</span><div class="vnode-chips"><span class="chip c-service">TwoFactorOTPServiceImpl</span><span class="chip c-model">TwoFactorAuth</span></div></div></div>
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.generateOtp() — same util, reused</span><div class="vnode-chips"><span class="chip c-utils">OtpUtils</span></div><div class="vnode-desc">DRY — no duplicate generation logic. Same util, different service caller.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">Save TwoFactorOTP + send email</span><div class="vnode-chips"><span class="chip c-repo">TwoFactorOTPRepository</span><span class="chip c-model">TwoFactorOTP</span></div></div></div>
+        <div class="vnode n-utils"><div class="vnode-side"><div class="vnode-circle">🔧</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">OtpUtils.verifyOtp() on submission</span><div class="vnode-chips"><span class="chip c-utils">OtpUtils</span></div><div class="vnode-desc">When user submits 2FA code, service calls OtpUtils to verify. If valid → JWT issued.</div></div></div>
+        <div class="vnode n-dto"><div class="vnode-side"><div class="vnode-circle">📤</div></div><div class="vnode-body"><span class="vnode-label">AuthResponse { jwt } → Client</span><div class="vnode-chips"><span class="chip c-dto">AuthResponse</span></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 VerificationType</h4><p>EMAIL, MOBILE, TWO_FACTOR, PASSWORD_RESET. Same VerificationCodeServiceImpl handles all — the type enum tells it which context the OTP is for.</p></div>
+    <div class="info-card"><h4 style="color:var(--service)">📧 EmailService</h4><p>Used by both flows. Sends via Spring Mail / SMTP. Credentials come from application.properties — mail.host, mail.port, mail.username, mail.password.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ FORGOT PASSWORD ══════════ -->
+<div class="tab-panel" id="forgot">
+  <div class="section-head">
+    <h2>📧 Forgot Password</h2>
+    <p>Two sub-flows: generate a reset token → send email link, then validate token and update password.</p>
+  </div>
+  <div class="flows-grid">
+    <div class="flow-card" style="--glow:rgba(236,72,153,.05)">
+      <h3>📤 Step 1 — Request Reset Token</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /auth/forgot-password</span><div class="vnode-chips"><span class="chip c-dto">ForgotPasswordTokenRequest { email }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">AuthController</span><div class="vnode-chips"><span class="chip c-controller">AuthController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">ForgotPasswordServiceImpl</span><div class="vnode-chips"><span class="chip c-service">ForgotPasswordServiceImpl</span><span class="chip c-model">ForgotPasswordToken</span></div><div class="vnode-desc">Generates a secure random token. Saves it with expiry. Finds user by email.</div></div></div>
+        <div class="vnode n-external"><div class="vnode-side"><div class="vnode-circle">📨</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">EmailService sends reset link</span><div class="vnode-chips"><span class="chip c-service">EmailService</span></div><div class="vnode-desc">Email contains: /reset-password?token=abc123xyz. Token is single-use, expires after set time.</div></div></div>
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div></div><div class="vnode-body"><span class="vnode-label">ForgotPasswordRepository → ForgotPasswordToken</span><div class="vnode-chips"><span class="chip c-repo">ForgotPasswordRepository</span><span class="chip c-model">ForgotPasswordToken</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card" style="--glow:rgba(16,185,129,.05)">
+      <h3>🔄 Step 2 — Reset Password</h3>
+      <div class="vchain">
+        <div class="vnode n-client"><div class="vnode-side"><div class="vnode-circle">🌐</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">POST /auth/reset-password</span><div class="vnode-chips"><span class="chip c-dto">ResetPasswordRequest { token, newPassword }</span></div></div></div>
+        <div class="vnode n-controller"><div class="vnode-side"><div class="vnode-circle">🎮</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">AuthController</span><div class="vnode-chips"><span class="chip c-controller">AuthController</span></div></div></div>
+        <div class="vnode n-service"><div class="vnode-side"><div class="vnode-circle">⚙️</div><div class="vnode-line"></div></div><div class="vnode-body"><span class="vnode-label">ForgotPasswordServiceImpl validates token</span><div class="vnode-chips"><span class="chip c-service">ForgotPasswordServiceImpl</span></div><div class="vnode-desc">Looks up token in DB. Checks expiry. If valid → BCrypt hash new password.</div></div></div>
+      </div>
+      <div class="branches">
+        <div class="branch branch-ok"><strong>✅ Valid token</strong><span>BCrypt encodes new password. UserRepository updates User. Token deleted. Done.</span></div>
+        <div class="branch branch-fail"><strong>❌ Invalid / expired</strong><span>Exception thrown. 400 returned. User must request a fresh token.</span></div>
+      </div>
+      <div class="vchain" style="margin-top:10px">
+        <div class="vnode n-repo"><div class="vnode-side"><div class="vnode-circle">📦</div></div><div class="vnode-body"><span class="vnode-label">UserRepository.save(user with new password)</span><div class="vnode-chips"><span class="chip c-repo">UserRepository</span><span class="chip c-model">User</span></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--dto)">📋 Two request DTOs</h4><p>ForgotPasswordTokenRequest carries the email. ResetPasswordRequest carries the token + new password. Clean separation of the two steps.</p></div>
+    <div class="info-card"><h4 style="color:var(--model)">🔐 ForgotPasswordToken model</h4><p>Stores: token string, userId, expiresAt, used flag. Single-use — once the password is reset, the token row is deleted to prevent replay attacks.</p></div>
+    <div class="info-card"><h4 style="color:var(--utils)">🔧 OtpUtils here?</h4><p>Optional. If your forgot-password uses an OTP code (not a URL token), then OtpUtils is called here too. If it uses ForgotPasswordToken (link), then OtpUtils is not involved.</p></div>
+  </div>
+</div>
+
+<!-- ══════════ DATABASE ══════════ -->
+<div class="tab-panel" id="database">
+  <div class="section-head">
+    <h2>🗄️ Database Tables</h2>
+    <p>All 15 MySQL tables managed by JPA. Each model class maps directly to one table.</p>
+  </div>
+  <div class="db-grid">
+    <div class="db-table"><div class="dt-icon">👤</div><div class="dt-name">users</div><div class="dt-desc">credentials, role, KYC</div></div>
+    <div class="db-table"><div class="dt-icon">💳</div><div class="dt-name">wallets</div><div class="dt-desc">fiat balance per user</div></div>
+    <div class="db-table"><div class="dt-icon">📜</div><div class="dt-name">wallet_transactions</div><div class="dt-desc">full audit trail</div></div>
+    <div class="db-table"><div class="dt-icon">📊</div><div class="dt-name">assets</div><div class="dt-desc">crypto holdings</div></div>
+    <div class="db-table"><div class="dt-icon">📋</div><div class="dt-name">orders</div><div class="dt-desc">buy/sell events</div></div>
+    <div class="db-table"><div class="dt-icon">🔖</div><div class="dt-name">order_items</div><div class="dt-desc">coin details per order</div></div>
+    <div class="db-table"><div class="dt-icon">🏦</div><div class="dt-name">withdrawals</div><div class="dt-desc">payout requests</div></div>
+    <div class="db-table"><div class="dt-icon">⭐</div><div class="dt-name">watchlists</div><div class="dt-desc">user favorites</div></div>
+    <div class="db-table"><div class="dt-icon">🪙</div><div class="dt-name">coins</div><div class="dt-desc">market data cache</div></div>
+    <div class="db-table"><div class="dt-icon">💰</div><div class="dt-name">payment_orders</div><div class="dt-desc">top-up attempts</div></div>
+    <div class="db-table"><div class="dt-icon">🗂️</div><div class="dt-name">payment_details</div><div class="dt-desc">saved payment info</div></div>
+    <div class="db-table"><div class="dt-icon">🔢</div><div class="dt-name">verification_codes</div><div class="dt-desc">OTP records</div></div>
+    <div class="db-table"><div class="dt-icon">🔒</div><div class="dt-name">two_factor_otp</div><div class="dt-desc">2FA codes</div></div>
+    <div class="db-table"><div class="dt-icon">🔑</div><div class="dt-name">forgot_password_tokens</div><div class="dt-desc">reset tokens</div></div>
+    <div class="db-table"><div class="dt-icon">⚙️</div><div class="dt-name">two_factor_auth</div><div class="dt-desc">2FA settings</div></div>
+  </div>
+
+  <div class="code-map" style="margin-bottom:20px">
+    <div><span class="cm-muted"># Full entity → repository → service → controller chain</span></div>
+    <div><span class="cm-db">users</span>              <span class="cm-arrow">←</span>  <span class="cm-repo">UserRepository</span>              <span class="cm-arrow">←</span>  <span class="cm-service">UserServiceImpl</span>              <span class="cm-arrow">←</span>  <span class="cm-controller">AuthController</span></div>
+    <div><span class="cm-db">wallets</span>            <span class="cm-arrow">←</span>  <span class="cm-repo">WalletRepository</span>            <span class="cm-arrow">←</span>  <span class="cm-service">WalletServiceImpl</span>            <span class="cm-arrow">←</span>  <span class="cm-controller">WalletController</span></div>
+    <div><span class="cm-db">wallet_transactions</span> <span class="cm-arrow">←</span>  <span class="cm-repo">WalletTransactionRepository</span> <span class="cm-arrow">←</span>  <span class="cm-service">TransactionServiceImpl</span>       <span class="cm-arrow">←</span>  <span class="cm-controller">TransactionController</span></div>
+    <div><span class="cm-db">assets</span>             <span class="cm-arrow">←</span>  <span class="cm-repo">AssetRepository</span>             <span class="cm-arrow">←</span>  <span class="cm-service">AssetServiceImpl</span>             <span class="cm-arrow">←</span>  <span class="cm-controller">AssetController</span></div>
+    <div><span class="cm-db">orders</span>             <span class="cm-arrow">←</span>  <span class="cm-repo">OrderRepository</span>             <span class="cm-arrow">←</span>  <span class="cm-service">OrderServiceImpl</span>             <span class="cm-arrow">←</span>  <span class="cm-controller">OrderController</span></div>
+    <div><span class="cm-db">verification_codes</span> <span class="cm-arrow">←</span>  <span class="cm-repo">VerificationCodeRepository</span>  <span class="cm-arrow">←</span>  <span class="cm-service">VerificationCodeServiceImpl</span>  <span class="cm-arrow">+</span>  <span class="cm-utils">OtpUtils</span></div>
+    <div><span class="cm-db">two_factor_otp</span>     <span class="cm-arrow">←</span>  <span class="cm-repo">TwoFactorOTPRepository</span>      <span class="cm-arrow">←</span>  <span class="cm-service">TwoFactorOTPServiceImpl</span>      <span class="cm-arrow">+</span>  <span class="cm-utils">OtpUtils</span></div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card"><h4 style="color:var(--repo)">📦 Spring Data JPA</h4><p>You write an interface like UserRepository extends JpaRepository. Spring generates all the SQL — SELECT, INSERT, UPDATE, DELETE — at runtime. No manual SQL needed for standard operations.</p></div>
+    <div class="info-card"><h4 style="color:var(--model)">🧩 Entity = Table</h4><p>Every @Entity class maps to one MySQL table. Field names become column names. @OneToMany, @ManyToOne annotations define relationships (foreign keys).</p></div>
+    <div class="info-card"><h4 style="color:var(--domain)">🔤 Enums as columns</h4><p>Domain enums (OrderStatus, WithdrawalStatus etc.) are stored as VARCHAR or ORDINAL in DB. @Enumerated(EnumType.STRING) is preferred — readable and safe to reorder.</p></div>
+  </div>
+</div>
+
+</main>
+</div><!-- /app -->
+
+<script>
+const btns = document.querySelectorAll('.nav-btn');
+const panels = document.querySelectorAll('.tab-panel');
+
+btns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.tab;
+    btns.forEach(b => b.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(t).classList.add('active');
+    // scroll content to top
+    document.querySelector('.content').scrollTo({top:0, behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>
